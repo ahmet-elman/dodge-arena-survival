@@ -8,13 +8,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "Dodge Arena is a fast browser arcade game: move with WASD or arrows, dodge homing enemies and survive as long as you can.",
+          "Dodge Arena is a fast browser arcade game: move with WASD or arrows, auto-attack chasing enemies, level up every 15 seconds and survive.",
       },
       { property: "og:title", content: "Dodge Arena — Survive the Chase" },
       {
         property: "og:description",
         content:
-          "Move with WASD, arrows or touch. Dodge the chasers, beat your best survival time.",
+          "Move with WASD, arrows or touch. Auto-attack enemies, pick upgrades every 15s and beat your best survival time.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -24,18 +24,45 @@ export const Route = createFileRoute("/")({
 });
 
 type Vec = { x: number; y: number };
-type Enemy = Vec & { vx: number; vy: number; r: number; hue: number };
+type Enemy = Vec & { vx: number; vy: number; r: number; hue: number; hp: number; maxHp: number; hit: number };
+type Bullet = Vec & { vx: number; vy: number; r: number; dmg: number; life: number };
 type Particle = Vec & { vx: number; vy: number; life: number; max: number; r: number; hue: number };
 
-type Phase = "menu" | "playing" | "over";
+type Phase = "menu" | "playing" | "upgrade" | "over";
+
+type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal";
+type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string };
+
+const UPGRADES: Upgrade[] = [
+  { key: "hp", title: "Can Barı +25", desc: "Maksimum can artar ve 25 can dolar", icon: "❤" },
+  { key: "damage", title: "Saldırı Gücü +35%", desc: "Mermilerin verdiği hasar artar", icon: "⚔" },
+  { key: "speed", title: "Hız +18%", desc: "Daha hızlı hareket edersin", icon: "⚡" },
+  { key: "firerate", title: "Atış Hızı +25%", desc: "Otomatik saldırı daha sık ateşler", icon: "🎯" },
+  { key: "heal", title: "Tam İyileşme", desc: "Canını tamamen doldurur", icon: "✚" },
+];
+
+function pick3(): Upgrade[] {
+  const pool = [...UPGRADES];
+  const out: Upgrade[] = [];
+  while (out.length < 3 && pool.length) {
+    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!);
+  }
+  return out;
+}
 
 function Index() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [phase, setPhase] = useState<Phase>("menu");
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
+  const [level, setLevel] = useState(1);
+  const [hp, setHp] = useState(100);
+  const [maxHp, setMaxHp] = useState(100);
+  const [kills, setKills] = useState(0);
+  const [choices, setChoices] = useState<Upgrade[]>([]);
   const phaseRef = useRef<Phase>("menu");
   const startRef = useRef<() => void>(() => {});
+  const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -69,12 +96,27 @@ function Index() {
     window.addEventListener("resize", resize);
 
     const keys = new Set<string>();
-    const player = { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 13 };
+    const player = {
+      x: w / 2,
+      y: h / 2,
+      vx: 0,
+      vy: 0,
+      r: 13,
+      hp: 100,
+      maxHp: 100,
+      speed: 340,
+      damage: 12,
+      fireRate: 2.2,
+      range: 260,
+      invuln: 0,
+    };
     let enemies: Enemy[] = [];
+    let bullets: Bullet[] = [];
     let particles: Particle[] = [];
     let elapsed = 0;
     let spawnTimer = 0;
-    let running = false;
+    let fireTimer = 0;
+    let nextLevelAt = 15;
     let shake = 0;
     const pointer = { active: false, x: 0, y: 0 };
 
@@ -114,7 +156,19 @@ function Index() {
         x = -m;
         y = Math.random() * h;
       }
-      enemies.push({ x, y, vx: 0, vy: 0, r: 10 + Math.random() * 4, hue: 350 + Math.random() * 20 });
+      const tier = Math.floor(elapsed / 15);
+      const maxHpE = 14 + tier * 9;
+      enemies.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        r: 10 + Math.random() * 4,
+        hue: 350 + Math.random() * 20,
+        hp: maxHpE,
+        maxHp: maxHpE,
+        hit: 0,
+      });
       burst(x, y, 8, 355, 2);
     };
 
@@ -123,22 +177,53 @@ function Index() {
       player.y = h / 2;
       player.vx = 0;
       player.vy = 0;
+      player.maxHp = 100;
+      player.hp = 100;
+      player.speed = 340;
+      player.damage = 12;
+      player.fireRate = 2.2;
+      player.invuln = 0;
       enemies = [];
+      bullets = [];
       particles = [];
       elapsed = 0;
       spawnTimer = 0;
+      fireTimer = 0;
+      nextLevelAt = 15;
       shake = 0;
-      running = true;
       setScore(0);
+      setKills(0);
+      setLevel(1);
+      setHp(100);
+      setMaxHp(100);
       setPhase("playing");
       for (let i = 0; i < 3; i++) spawnEnemy();
     };
     startRef.current = start;
 
+    applyRef.current = (k: UpgradeKey) => {
+      if (k === "hp") {
+        player.maxHp += 25;
+        player.hp = Math.min(player.maxHp, player.hp + 25);
+      } else if (k === "damage") {
+        player.damage *= 1.35;
+      } else if (k === "speed") {
+        player.speed *= 1.18;
+      } else if (k === "firerate") {
+        player.fireRate *= 1.25;
+      } else if (k === "heal") {
+        player.hp = player.maxHp;
+      }
+      setHp(Math.ceil(player.hp));
+      setMaxHp(player.maxHp);
+      setLevel((l) => l + 1);
+      setPhase("playing");
+      burst(player.x, player.y, 40, 140, 4);
+    };
+
     const gameOver = () => {
-      running = false;
       burst(player.x, player.y, 60, 190, 6);
-      shake = 14;
+      shake = 16;
       const final = Math.floor(elapsed * 10) / 10;
       setScore(final);
       setBest((b) => {
@@ -153,7 +238,7 @@ function Index() {
       keys.add(e.key.toLowerCase());
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(e.key.toLowerCase()))
         e.preventDefault();
-      if (e.key === "Enter" && phaseRef.current !== "playing") start();
+      if (e.key === "Enter" && (phaseRef.current === "menu" || phaseRef.current === "over")) start();
     };
     const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
     window.addEventListener("keydown", onKeyDown, { passive: false });
@@ -186,10 +271,12 @@ function Index() {
       raf = requestAnimationFrame(loop);
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
+      const running = phaseRef.current === "playing";
 
       if (running) {
         elapsed += dt;
         setScore(Math.floor(elapsed * 10) / 10);
+        if (player.invuln > 0) player.invuln -= dt;
 
         // input
         let ax = 0;
@@ -212,13 +299,13 @@ function Index() {
           ax /= len;
           ay /= len;
         }
-        const accel = 2600;
+        const accel = player.speed * 7.6;
         player.vx += ax * accel * dt;
         player.vy += ay * accel * dt;
         const drag = Math.pow(0.0015, dt);
         player.vx *= drag;
         player.vy *= drag;
-        const maxS = 340;
+        const maxS = player.speed;
         const sp = Math.hypot(player.vx, player.vy);
         if (sp > maxS) {
           player.vx = (player.vx / sp) * maxS;
@@ -228,17 +315,71 @@ function Index() {
         player.y = Math.max(player.r, Math.min(h - player.r, player.y + player.vy * dt));
         if (sp > 60 && Math.random() < 0.6) burst(player.x, player.y, 1, 190, 0.6);
 
-        // difficulty: +12% speed every 15s
+        // difficulty
         const steps = Math.floor(elapsed / 15);
         const enemySpeed = 90 * Math.pow(1.18, steps);
 
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
           spawnEnemy();
-          spawnTimer = Math.max(0.6, 2.2 - elapsed * 0.02);
+          spawnTimer = Math.max(0.55, 2.0 - elapsed * 0.02);
         }
 
+        // auto attack: nearest enemy in range
+        fireTimer -= dt;
+        if (fireTimer <= 0 && enemies.length) {
+          let target: Enemy | null = null;
+          let bd = Infinity;
+          for (const en of enemies) {
+            const d = Math.hypot(en.x - player.x, en.y - player.y);
+            if (d < bd) {
+              bd = d;
+              target = en;
+            }
+          }
+          if (target && bd < player.range * 2.5) {
+            const dx = target.x - player.x;
+            const dy = target.y - player.y;
+            const d = Math.hypot(dx, dy) || 1;
+            const bs = 520;
+            bullets.push({
+              x: player.x,
+              y: player.y,
+              vx: (dx / d) * bs,
+              vy: (dy / d) * bs,
+              r: 4.5,
+              dmg: player.damage,
+              life: 1.6,
+            });
+            fireTimer = 1 / player.fireRate;
+          }
+        }
+
+        // bullets
+        for (const b of bullets) {
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+          b.life -= dt;
+          for (const en of enemies) {
+            if (en.hp <= 0) continue;
+            if (Math.hypot(en.x - b.x, en.y - b.y) < en.r + b.r) {
+              en.hp -= b.dmg;
+              en.hit = 0.12;
+              b.life = 0;
+              burst(b.x, b.y, 5, 45, 2);
+              if (en.hp <= 0) {
+                burst(en.x, en.y, 18, en.hue, 3.5);
+                setKills((k) => k + 1);
+              }
+              break;
+            }
+          }
+        }
+        bullets = bullets.filter((b) => b.life > 0 && b.x > -30 && b.x < w + 30 && b.y > -30 && b.y < h + 30);
+        enemies = enemies.filter((en) => en.hp > 0);
+
         for (const en of enemies) {
+          if (en.hit > 0) en.hit -= dt;
           const dx = player.x - en.x;
           const dy = player.y - en.y;
           const d = Math.hypot(dx, dy) || 1;
@@ -246,10 +387,25 @@ function Index() {
           en.vy += ((dy / d) * enemySpeed - en.vy) * Math.min(1, dt * 3);
           en.x += en.vx * dt;
           en.y += en.vy * dt;
-          if (d < en.r + player.r) {
-            gameOver();
-            break;
+          if (d < en.r + player.r && player.invuln <= 0) {
+            player.hp -= 12 + steps * 3;
+            player.invuln = 0.8;
+            shake = 10;
+            burst(player.x, player.y, 14, 0, 3);
+            setHp(Math.max(0, Math.ceil(player.hp)));
+            if (player.hp <= 0) {
+              gameOver();
+              break;
+            }
           }
+        }
+
+        // level up every 15s
+        if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
+          nextLevelAt += 15;
+          setChoices(pick3());
+          setPhase("upgrade");
+          phaseRef.current = "upgrade";
         }
       }
 
@@ -303,7 +459,7 @@ function Index() {
         const pulse = 1 + Math.sin(t * 6 + en.x * 0.05) * 0.08;
         ctx.shadowBlur = 18;
         ctx.shadowColor = `hsl(${en.hue},90%,60%)`;
-        ctx.fillStyle = `hsl(${en.hue},85%,58%)`;
+        ctx.fillStyle = en.hit > 0 ? "#ffffff" : `hsl(${en.hue},85%,58%)`;
         ctx.beginPath();
         ctx.arc(en.x, en.y, en.r * pulse, 0, Math.PI * 2);
         ctx.fill();
@@ -312,9 +468,28 @@ function Index() {
         ctx.beginPath();
         ctx.arc(en.x - en.r * 0.3, en.y - en.r * 0.3, en.r * 0.25, 0, Math.PI * 2);
         ctx.fill();
+        if (en.hp < en.maxHp) {
+          const bw = en.r * 2.2;
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(en.x - bw / 2, en.y - en.r - 9, bw, 3.5);
+          ctx.fillStyle = "hsl(140,80%,55%)";
+          ctx.fillRect(en.x - bw / 2, en.y - en.r - 9, (bw * en.hp) / en.maxHp, 3.5);
+        }
       }
 
-      if (running) {
+      for (const b of bullets) {
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = "hsl(48,100%,60%)";
+        ctx.fillStyle = "hsl(50,100%,72%)";
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      if (phaseRef.current === "playing" || phaseRef.current === "upgrade") {
+        const flash = player.invuln > 0 && Math.floor(t * 20) % 2 === 0;
+        ctx.globalAlpha = flash ? 0.45 : 1;
         ctx.shadowBlur = 24;
         ctx.shadowColor = "hsl(190,100%,60%)";
         ctx.fillStyle = "hsl(185,100%,70%)";
@@ -327,6 +502,7 @@ function Index() {
         ctx.beginPath();
         ctx.arc(player.x, player.y, player.r + 4 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
       ctx.restore();
     };
@@ -345,6 +521,7 @@ function Index() {
   }, []);
 
   const handleStart = useCallback(() => startRef.current(), []);
+  const handlePick = useCallback((k: UpgradeKey) => applyRef.current(k), []);
 
   return (
     <main className="arena-page">
@@ -353,37 +530,78 @@ function Index() {
           <h1 className="arena-title">Dodge Arena</h1>
           <div className="arena-stats">
             <span className="stat">
-              <small>Time</small>
+              <small>Süre</small>
               {score.toFixed(1)}s
             </span>
             <span className="stat">
-              <small>Best</small>
+              <small>Seviye</small>
+              {level}
+            </span>
+            <span className="stat">
+              <small>Öldürme</small>
+              {kills}
+            </span>
+            <span className="stat">
+              <small>Rekor</small>
               {best.toFixed(1)}s
             </span>
           </div>
         </header>
 
+        <div className="arena-hpbar" aria-label="Can barı">
+          <div
+            className="arena-hpfill"
+            style={{ width: `${Math.max(0, Math.min(100, (hp / maxHp) * 100))}%` }}
+          />
+          <span className="arena-hptext">
+            {Math.max(0, hp)} / {maxHp}
+          </span>
+        </div>
+
         <div className="arena-stage">
           <canvas ref={canvasRef} className="arena-canvas" />
 
-          {phase !== "playing" && (
+          {phase === "upgrade" && (
+            <div className="arena-overlay">
+              <div className="arena-card arena-card-wide">
+                <h2>Seviye Atladın!</h2>
+                <p>Bir güçlendirme seç</p>
+                <div className="arena-choices">
+                  {choices.map((c) => (
+                    <button key={c.key} className="arena-choice" onClick={() => handlePick(c.key)}>
+                      <span className="arena-choice-icon">{c.icon}</span>
+                      <strong>{c.title}</strong>
+                      <em>{c.desc}</em>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {(phase === "menu" || phase === "over") && (
             <div className="arena-overlay">
               <div className="arena-card">
                 {phase === "menu" ? (
                   <>
-                    <h2>Survive the chase</h2>
-                    <p>Move with WASD, arrow keys, or drag on touch. Don&apos;t let them touch you.</p>
+                    <h2>Hayatta kal</h2>
+                    <p>
+                      WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Karakterin en yakın düşmana
+                      otomatik ateş eder. Her 15 saniyede güçlendirme seç.
+                    </p>
                     <button className="arena-btn" onClick={handleStart}>
-                      Start Game
+                      Oyunu Başlat
                     </button>
                   </>
                 ) : (
                   <>
-                    <h2>Game Over</h2>
+                    <h2>Oyun Bitti</h2>
                     <p className="arena-score">{score.toFixed(1)}s</p>
-                    <p>Best: {best.toFixed(1)}s</p>
+                    <p>
+                      Rekor: {best.toFixed(1)}s · {kills} düşman
+                    </p>
                     <button className="arena-btn" onClick={handleStart}>
-                      Play Again
+                      Tekrar Oyna
                     </button>
                   </>
                 )}
@@ -392,7 +610,7 @@ function Index() {
           )}
         </div>
 
-        <p className="arena-hint">Enemies speed up every 15 seconds.</p>
+        <p className="arena-hint">Düşmanlar her 15 saniyede hızlanır ve güçlenir.</p>
       </div>
     </main>
   );
