@@ -592,7 +592,7 @@ function Index() {
             en.y += en.vy * dt;
           }
           if (d < en.r + player.r && player.invuln <= 0) {
-            player.hp -= 12 + steps * 3;
+            player.hp -= 12 + steps * 1;
             player.invuln = 0.8;
             shake = 10;
             burst(player.x, player.y, 14, 0, 3);
