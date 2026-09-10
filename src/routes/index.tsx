@@ -606,7 +606,7 @@ function Index() {
 
         // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
-          nextLevelAt += 5;
+          nextLevelAt += 15;
           setChoices(pickChoices(4));
           setPhase("upgrade");
           phaseRef.current = "upgrade";
