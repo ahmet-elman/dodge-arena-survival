@@ -592,7 +592,7 @@ function Index() {
             en.y += en.vy * dt;
           }
           if (d < en.r + player.r && player.invuln <= 0) {
-            player.hp -= 12 + steps * 10000;
+            player.hp -= 12 + steps * 0.1;
             player.invuln = 0.8;
             shake = 10;
             burst(player.x, player.y, 14, 0, 3);
@@ -606,7 +606,7 @@ function Index() {
 
         // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
-          nextLevelAt += 15;
+          nextLevelAt += 5;
           setChoices(pickChoices(4));
           setPhase("upgrade");
           phaseRef.current = "upgrade";
