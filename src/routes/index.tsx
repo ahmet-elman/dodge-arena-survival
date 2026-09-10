@@ -311,6 +311,7 @@ function Index() {
       pointer.y = e.clientY - rect.top;
     };
     const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
       pointer.active = true;
       pos(e);
     };
@@ -346,7 +347,11 @@ function Index() {
         if (keys.has("d") || keys.has("arrowright")) ax += 1;
         if (keys.has("w") || keys.has("arrowup")) ay -= 1;
         if (keys.has("s") || keys.has("arrowdown")) ay += 1;
-        if (pointer.active) {
+        const stick = stickRef.current;
+        if (Math.hypot(stick.x, stick.y) > 0.12) {
+          ax += stick.x;
+          ay += stick.y;
+        } else if (pointer.active) {
           const dx = pointer.x - player.x;
           const dy = pointer.y - player.y;
           const d = Math.hypot(dx, dy);
