@@ -61,12 +61,73 @@ function Index() {
   const [kills, setKills] = useState(0);
   const [choices, setChoices] = useState<Upgrade[]>([]);
   const phaseRef = useRef<Phase>("menu");
+  const stickRef = useRef<Vec>({ x: 0, y: 0 });
+  const stickBaseRef = useRef<HTMLDivElement | null>(null);
+  const stickKnobRef = useRef<HTMLDivElement | null>(null);
+  const [isTouch, setIsTouch] = useState(false);
   const startRef = useRef<() => void>(() => {});
   const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    setIsTouch(
+      typeof window !== "undefined" &&
+        (window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window),
+    );
+  }, []);
+
+  // sanal joystick
+  useEffect(() => {
+    const base = stickBaseRef.current;
+    const knob = stickKnobRef.current;
+    if (!base || !knob) return;
+    let id: number | null = null;
+
+    const setKnob = (dx: number, dy: number) => {
+      knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    };
+    const move = (e: PointerEvent) => {
+      if (id !== e.pointerId) return;
+      const rect = base.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const max = rect.width / 2 - 12;
+      let dx = e.clientX - cx;
+      let dy = e.clientY - cy;
+      const d = Math.hypot(dx, dy);
+      if (d > max) {
+        dx = (dx / d) * max;
+        dy = (dy / d) * max;
+      }
+      setKnob(dx, dy);
+      stickRef.current = { x: dx / max, y: dy / max };
+    };
+    const down = (e: PointerEvent) => {
+      id = e.pointerId;
+      base.setPointerCapture(e.pointerId);
+      move(e);
+      e.preventDefault();
+    };
+    const up = (e: PointerEvent) => {
+      if (id !== e.pointerId) return;
+      id = null;
+      stickRef.current = { x: 0, y: 0 };
+      setKnob(0, 0);
+    };
+    base.addEventListener("pointerdown", down);
+    base.addEventListener("pointermove", move);
+    base.addEventListener("pointerup", up);
+    base.addEventListener("pointercancel", up);
+    return () => {
+      base.removeEventListener("pointerdown", down);
+      base.removeEventListener("pointermove", move);
+      base.removeEventListener("pointerup", up);
+      base.removeEventListener("pointercancel", up);
+    };
+  }, [isTouch, phase]);
 
   useEffect(() => {
     const stored = Number(localStorage.getItem("dodge-arena-best") || 0);
@@ -250,6 +311,7 @@ function Index() {
       pointer.y = e.clientY - rect.top;
     };
     const onDown = (e: PointerEvent) => {
+      if (e.pointerType !== "mouse") return;
       pointer.active = true;
       pos(e);
     };
@@ -285,7 +347,11 @@ function Index() {
         if (keys.has("d") || keys.has("arrowright")) ax += 1;
         if (keys.has("w") || keys.has("arrowup")) ay -= 1;
         if (keys.has("s") || keys.has("arrowdown")) ay += 1;
-        if (pointer.active) {
+        const stick = stickRef.current;
+        if (Math.hypot(stick.x, stick.y) > 0.12) {
+          ax += stick.x;
+          ay += stick.y;
+        } else if (pointer.active) {
           const dx = pointer.x - player.x;
           const dy = pointer.y - player.y;
           const d = Math.hypot(dx, dy);
@@ -608,7 +674,14 @@ function Index() {
               </div>
             </div>
           )}
+
+          {isTouch && phase === "playing" && (
+            <div className="arena-stick" ref={stickBaseRef} aria-label="Yön kolu">
+              <div className="arena-stick-knob" ref={stickKnobRef} />
+            </div>
+          )}
         </div>
+
 
         <p className="arena-hint">Düşmanlar her 15 saniyede hızlanır ve güçlenir.</p>
       </div>
