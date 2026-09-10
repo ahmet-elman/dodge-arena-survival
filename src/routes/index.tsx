@@ -674,7 +674,14 @@ function Index() {
               </div>
             </div>
           )}
+
+          {isTouch && phase === "playing" && (
+            <div className="arena-stick" ref={stickBaseRef} aria-label="Yön kolu">
+              <div className="arena-stick-knob" ref={stickKnobRef} />
+            </div>
+          )}
         </div>
+
 
         <p className="arena-hint">Düşmanlar her 15 saniyede hızlanır ve güçlenir.</p>
       </div>
