@@ -142,3 +142,189 @@
     color: var(--color-foreground);
   }
 }
+
+/* ---------- Dodge Arena ---------- */
+.arena-page {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.75rem, 2vw, 2rem);
+  background: radial-gradient(circle at 50% 0%, #16203c 0%, #070a13 60%);
+  color: #e9f1ff;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  overflow: hidden;
+}
+
+.arena-wrap {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.arena-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.arena-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 5vw, 2.25rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(92deg, #6ee7ff, #a78bfa 60%, #ff6b8b);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.arena-stats {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  min-width: 74px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.stat small {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.arena-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  max-height: 72dvh;
+  border-radius: 1.1rem;
+  overflow: hidden;
+  border: 1px solid rgba(140, 180, 255, 0.18);
+  box-shadow: 0 30px 80px -30px rgba(80, 140, 255, 0.5);
+  touch-action: none;
+}
+
+@media (max-width: 640px) {
+  .arena-stage {
+    aspect-ratio: 3 / 4;
+  }
+}
+
+.arena-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.arena-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(6, 9, 18, 0.65);
+  backdrop-filter: blur(6px);
+  animation: arena-fade 0.25s ease-out;
+}
+
+.arena-card {
+  text-align: center;
+  padding: 1.5rem 1.75rem;
+  border-radius: 1rem;
+  background: rgba(20, 27, 48, 0.85);
+  border: 1px solid rgba(150, 190, 255, 0.2);
+  max-width: 22rem;
+  animation: arena-pop 0.25s ease-out;
+}
+
+.arena-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.arena-card p {
+  margin: 0 0 0.9rem;
+  font-size: 0.9rem;
+  opacity: 0.75;
+  line-height: 1.45;
+}
+
+.arena-score {
+  font-size: 2.4rem !important;
+  font-weight: 800;
+  opacity: 1 !important;
+  margin-bottom: 0.2rem !important;
+  color: #6ee7ff;
+}
+
+.arena-btn {
+  cursor: pointer;
+  border: 0;
+  padding: 0.7rem 1.5rem;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #06111c;
+  background: linear-gradient(92deg, #6ee7ff, #a78bfa);
+  box-shadow: 0 10px 30px -10px rgba(110, 231, 255, 0.8);
+  transition:
+    transform 0.15s ease,
+    filter 0.15s ease;
+}
+
+.arena-btn:hover {
+  transform: translateY(-2px) scale(1.03);
+  filter: brightness(1.08);
+}
+
+.arena-btn:active {
+  transform: scale(0.97);
+}
+
+.arena-hint {
+  margin: 0;
+  text-align: center;
+  font-size: 0.78rem;
+  opacity: 0.5;
+}
+
+@keyframes arena-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes arena-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

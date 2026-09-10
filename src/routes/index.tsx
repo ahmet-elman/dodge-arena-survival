@@ -1,24 +1,399 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState, useCallback } from "react";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Dodge Arena — Survive the Chase" },
+      {
+        name: "description",
+        content:
+          "Dodge Arena is a fast browser arcade game: move with WASD or arrows, dodge homing enemies and survive as long as you can.",
+      },
+      { property: "og:title", content: "Dodge Arena — Survive the Chase" },
+      {
+        property: "og:description",
+        content:
+          "Move with WASD, arrows or touch. Dodge the chasers, beat your best survival time.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
+type Vec = { x: number; y: number };
+type Enemy = Vec & { vx: number; vy: number; r: number; hue: number };
+type Particle = Vec & { vx: number; vy: number; life: number; max: number; r: number; hue: number };
+
+type Phase = "menu" | "playing" | "over";
+
 function Index() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [phase, setPhase] = useState<Phase>("menu");
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const phaseRef = useRef<Phase>("menu");
+  const startRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    const stored = Number(localStorage.getItem("dodge-arena-best") || 0);
+    if (!Number.isNaN(stored)) setBest(stored);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let w = 0;
+    let h = 0;
+    let dpr = 1;
+
+    const resize = () => {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const rect = canvas.getBoundingClientRect();
+      w = rect.width;
+      h = rect.height;
+      canvas.width = Math.floor(w * dpr);
+      canvas.height = Math.floor(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const keys = new Set<string>();
+    const player = { x: w / 2, y: h / 2, vx: 0, vy: 0, r: 13 };
+    let enemies: Enemy[] = [];
+    let particles: Particle[] = [];
+    let elapsed = 0;
+    let spawnTimer = 0;
+    let running = false;
+    let shake = 0;
+    const pointer = { active: false, x: 0, y: 0 };
+
+    const burst = (x: number, y: number, n: number, hue: number, power = 3) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = Math.random() * power + 0.5;
+        const max = 0.4 + Math.random() * 0.6;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(a) * s * 60,
+          vy: Math.sin(a) * s * 60,
+          life: max,
+          max,
+          r: 1 + Math.random() * 3,
+          hue,
+        });
+      }
+    };
+
+    const spawnEnemy = () => {
+      const side = Math.floor(Math.random() * 4);
+      const m = 24;
+      let x = 0;
+      let y = 0;
+      if (side === 0) {
+        x = Math.random() * w;
+        y = -m;
+      } else if (side === 1) {
+        x = w + m;
+        y = Math.random() * h;
+      } else if (side === 2) {
+        x = Math.random() * w;
+        y = h + m;
+      } else {
+        x = -m;
+        y = Math.random() * h;
+      }
+      enemies.push({ x, y, vx: 0, vy: 0, r: 10 + Math.random() * 4, hue: 350 + Math.random() * 20 });
+      burst(x, y, 8, 355, 2);
+    };
+
+    const start = () => {
+      player.x = w / 2;
+      player.y = h / 2;
+      player.vx = 0;
+      player.vy = 0;
+      enemies = [];
+      particles = [];
+      elapsed = 0;
+      spawnTimer = 0;
+      shake = 0;
+      running = true;
+      setScore(0);
+      setPhase("playing");
+      for (let i = 0; i < 3; i++) spawnEnemy();
+    };
+    startRef.current = start;
+
+    const gameOver = () => {
+      running = false;
+      burst(player.x, player.y, 60, 190, 6);
+      shake = 14;
+      const final = Math.floor(elapsed * 10) / 10;
+      setScore(final);
+      setBest((b) => {
+        const nb = Math.max(b, final);
+        localStorage.setItem("dodge-arena-best", String(nb));
+        return nb;
+      });
+      setPhase("over");
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      keys.add(e.key.toLowerCase());
+      if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(e.key.toLowerCase()))
+        e.preventDefault();
+      if (e.key === "Enter" && phaseRef.current !== "playing") start();
+    };
+    const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
+    window.addEventListener("keydown", onKeyDown, { passive: false });
+    window.addEventListener("keyup", onKeyUp);
+
+    const pos = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      pointer.x = e.clientX - rect.left;
+      pointer.y = e.clientY - rect.top;
+    };
+    const onDown = (e: PointerEvent) => {
+      pointer.active = true;
+      pos(e);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (pointer.active) pos(e);
+    };
+    const onUp = () => {
+      pointer.active = false;
+    };
+    canvas.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+
+    let last = performance.now();
+    let raf = 0;
+
+    const loop = (now: number) => {
+      raf = requestAnimationFrame(loop);
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+
+      if (running) {
+        elapsed += dt;
+        setScore(Math.floor(elapsed * 10) / 10);
+
+        // input
+        let ax = 0;
+        let ay = 0;
+        if (keys.has("a") || keys.has("arrowleft")) ax -= 1;
+        if (keys.has("d") || keys.has("arrowright")) ax += 1;
+        if (keys.has("w") || keys.has("arrowup")) ay -= 1;
+        if (keys.has("s") || keys.has("arrowdown")) ay += 1;
+        if (pointer.active) {
+          const dx = pointer.x - player.x;
+          const dy = pointer.y - player.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 4) {
+            ax += dx / d;
+            ay += dy / d;
+          }
+        }
+        const len = Math.hypot(ax, ay);
+        if (len > 0) {
+          ax /= len;
+          ay /= len;
+        }
+        const accel = 2600;
+        player.vx += ax * accel * dt;
+        player.vy += ay * accel * dt;
+        const drag = Math.pow(0.0015, dt);
+        player.vx *= drag;
+        player.vy *= drag;
+        const maxS = 340;
+        const sp = Math.hypot(player.vx, player.vy);
+        if (sp > maxS) {
+          player.vx = (player.vx / sp) * maxS;
+          player.vy = (player.vy / sp) * maxS;
+        }
+        player.x = Math.max(player.r, Math.min(w - player.r, player.x + player.vx * dt));
+        player.y = Math.max(player.r, Math.min(h - player.r, player.y + player.vy * dt));
+        if (sp > 60 && Math.random() < 0.6) burst(player.x, player.y, 1, 190, 0.6);
+
+        // difficulty: +12% speed every 15s
+        const steps = Math.floor(elapsed / 15);
+        const enemySpeed = 90 * Math.pow(1.18, steps);
+
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          spawnEnemy();
+          spawnTimer = Math.max(0.6, 2.2 - elapsed * 0.02);
+        }
+
+        for (const en of enemies) {
+          const dx = player.x - en.x;
+          const dy = player.y - en.y;
+          const d = Math.hypot(dx, dy) || 1;
+          en.vx += ((dx / d) * enemySpeed - en.vx) * Math.min(1, dt * 3);
+          en.vy += ((dy / d) * enemySpeed - en.vy) * Math.min(1, dt * 3);
+          en.x += en.vx * dt;
+          en.y += en.vy * dt;
+          if (d < en.r + player.r) {
+            gameOver();
+            break;
+          }
+        }
+      }
+
+      // particles
+      for (const p of particles) {
+        p.life -= dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+      }
+      particles = particles.filter((p) => p.life > 0);
+      if (particles.length > 600) particles = particles.slice(-600);
+
+      // render
+      ctx.save();
+      if (shake > 0) {
+        shake *= 0.9;
+        ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+      }
+      const g = ctx.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, Math.max(w, h) * 0.75);
+      g.addColorStop(0, "#141a2e");
+      g.addColorStop(1, "#080b16");
+      ctx.fillStyle = g;
+      ctx.fillRect(-40, -40, w + 80, h + 80);
+
+      ctx.strokeStyle = "rgba(120,160,255,0.07)";
+      ctx.lineWidth = 1;
+      const grid = 48;
+      ctx.beginPath();
+      for (let x = 0; x < w; x += grid) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+      }
+      for (let y = 0; y < h; y += grid) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+      }
+      ctx.stroke();
+
+      for (const p of particles) {
+        const a = Math.max(0, p.life / p.max);
+        ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, ${a})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r * a + 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      const t = now / 1000;
+      for (const en of enemies) {
+        const pulse = 1 + Math.sin(t * 6 + en.x * 0.05) * 0.08;
+        ctx.shadowBlur = 18;
+        ctx.shadowColor = `hsl(${en.hue},90%,60%)`;
+        ctx.fillStyle = `hsl(${en.hue},85%,58%)`;
+        ctx.beginPath();
+        ctx.arc(en.x, en.y, en.r * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "rgba(255,255,255,0.65)";
+        ctx.beginPath();
+        ctx.arc(en.x - en.r * 0.3, en.y - en.r * 0.3, en.r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (running) {
+        ctx.shadowBlur = 24;
+        ctx.shadowColor = "hsl(190,100%,60%)";
+        ctx.fillStyle = "hsl(185,100%,70%)";
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = "rgba(255,255,255,0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.r + 4 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+    raf = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+      canvas.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, []);
+
+  const handleStart = useCallback(() => startRef.current(), []);
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <main className="arena-page">
+      <div className="arena-wrap">
+        <header className="arena-head">
+          <h1 className="arena-title">Dodge Arena</h1>
+          <div className="arena-stats">
+            <span className="stat">
+              <small>Time</small>
+              {score.toFixed(1)}s
+            </span>
+            <span className="stat">
+              <small>Best</small>
+              {best.toFixed(1)}s
+            </span>
+          </div>
+        </header>
+
+        <div className="arena-stage">
+          <canvas ref={canvasRef} className="arena-canvas" />
+
+          {phase !== "playing" && (
+            <div className="arena-overlay">
+              <div className="arena-card">
+                {phase === "menu" ? (
+                  <>
+                    <h2>Survive the chase</h2>
+                    <p>Move with WASD, arrow keys, or drag on touch. Don&apos;t let them touch you.</p>
+                    <button className="arena-btn" onClick={handleStart}>
+                      Start Game
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h2>Game Over</h2>
+                    <p className="arena-score">{score.toFixed(1)}s</p>
+                    <p>Best: {best.toFixed(1)}s</p>
+                    <button className="arena-btn" onClick={handleStart}>
+                      Play Again
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <p className="arena-hint">Enemies speed up every 15 seconds.</p>
+      </div>
+    </main>
   );
 }
