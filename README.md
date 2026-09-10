@@ -1,57 +1,6 @@
 # Dodge Arena Survival (88)
 
-Tarayıcıda hemen oynanabilecek küçük ve eğlenceli bir 2D oyun oluştur.
-
-Oyunun adı: "Dodge Arena"
-
-Kurallar:
-
-Oyuncu ekranda küçük bir karakteri WASD veya ok tuşlarıyla kontrol etsin.
-
-Ekranın kenarlarından düşmanlar ortaya çıksın ve oyuncuyu takip etmeye çalışsın.
-
-Oyuncu düşmanlara değerse oyun bitsin.
-
-Amaç mümkün olduğunca uzun süre hayatta kalmak.
-
-Hayatta kalınan süre ekranda skor olarak gösterilsin.
-
-Her 15 saniyede düşmanların hızı biraz artsın.
-
-Oyuncunun hareketi akıcı olsun.
-
-Oyun başladığında "Start Game" butonu olsun.
-
-Kaybedildiğinde skor gösterilsin ve "Play Again" butonu çıksın.
-
-Basit ama güzel görünen bir arayüz kullan.
-
-Oyunun arka planı, oyuncu ve düşmanlar birbirinden kolayca ayırt edilebilsin.
-
-Küçük parçacık efektleri ve basit animasyonlar ekle.
-
-Oyun hem bilgisayarda hem mobil ekranda düzgün çalışsın.
-
-Teknik şartlar:
-
-HTML, CSS ve JavaScript kullan.
-
-Harici backend veya veritabanı kullanma.
-
-Harici kütüphane kullanmak zorunda değilsin; mümkünse vanilla JavaScript kullan.
-
-Oyunun çalışması için gereken bütün kodu oluştur.
-
-Dosyaları birbirleriyle doğru şekilde bağla.
-
-Oyuncunun ekstra kurulum yapmasına gerek kalmasın.
-
-Projeyi oluşturduktan sonra doğrudan tarayıcıda çalıştırılabilir durumda bırak.
-
-ÖNEMLİ:
-Önce uzun açıklamalar yazma. Oyunun kendisini oluştur.
-Kodda eksik veya çalışmayan bölüm bırakma.
-Oyunu gerçekten oynanabilir bir durumda teslim et.
+Tarayıcıda hemen oynanabilecek küçük ve eğlenceli bir 2D oyun.
 
 This project was built with [Lovable](https://lovable.dev).
 
