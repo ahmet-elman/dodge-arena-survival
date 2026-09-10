@@ -27,25 +27,45 @@ type Vec = { x: number; y: number };
 type Enemy = Vec & { vx: number; vy: number; r: number; hue: number; hp: number; maxHp: number; hit: number };
 type Bullet = Vec & { vx: number; vy: number; r: number; dmg: number; life: number };
 type Particle = Vec & { vx: number; vy: number; life: number; max: number; r: number; hue: number };
+type ItemKind = "freeze" | "burn";
+type Item = Vec & { kind: ItemKind; life: number };
 
 type Phase = "menu" | "playing" | "upgrade" | "over";
 
-type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal";
-type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string };
+type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns";
+type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string; weight: number };
 
 const UPGRADES: Upgrade[] = [
-  { key: "hp", title: "Can Barı +25", desc: "Maksimum can artar ve 25 can dolar", icon: "❤" },
-  { key: "damage", title: "Saldırı Gücü +35%", desc: "Mermilerin verdiği hasar artar", icon: "⚔" },
-  { key: "speed", title: "Hız +18%", desc: "Daha hızlı hareket edersin", icon: "⚡" },
-  { key: "firerate", title: "Atış Hızı +25%", desc: "Otomatik saldırı daha sık ateşler", icon: "🎯" },
-  { key: "heal", title: "Tam İyileşme", desc: "Canını tamamen doldurur", icon: "✚" },
+  { key: "hp", title: "Can Barı +25", desc: "Maksimum can artar ve 25 can dolar", icon: "❤", weight: 10 },
+  { key: "damage", title: "Saldırı Gücü +35%", desc: "Mermilerin verdiği hasar artar", icon: "⚔", weight: 10 },
+  { key: "speed", title: "Hız +18%", desc: "Daha hızlı hareket edersin", icon: "⚡", weight: 10 },
+  { key: "firerate", title: "Atış Hızı +25%", desc: "Otomatik saldırı daha sık ateşler", icon: "🎯", weight: 10 },
+  { key: "heal", title: "Tam İyileşme", desc: "Canını tamamen doldurur", icon: "✚", weight: 8 },
+  {
+    key: "nova",
+    title: "Buz Patlaması",
+    desc: "Periyodik olarak düşmanları 1 sn dondurur ve hasar verir",
+    icon: "❄",
+    weight: 8,
+  },
+  { key: "guns", title: "Ekstra Silah", desc: "Aynı anda bir mermi daha ateşlersin", icon: "🔫", weight: 3 },
 ];
 
-function pick3(): Upgrade[] {
-  const pool = [...UPGRADES];
+function pickChoices(n: number): Upgrade[] {
+  const pool = UPGRADES.map((u) => ({ ...u }));
   const out: Upgrade[] = [];
-  while (out.length < 3 && pool.length) {
-    out.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]!);
+  while (out.length < n && pool.length) {
+    const total = pool.reduce((s, u) => s + u.weight, 0);
+    let r = Math.random() * total;
+    let idx = 0;
+    for (let i = 0; i < pool.length; i++) {
+      r -= pool[i]!.weight;
+      if (r <= 0) {
+        idx = i;
+        break;
+      }
+    }
+    out.push(pool.splice(idx, 1)[0]!);
   }
   return out;
 }
@@ -59,7 +79,9 @@ function Index() {
   const [hp, setHp] = useState(100);
   const [maxHp, setMaxHp] = useState(100);
   const [kills, setKills] = useState(0);
+  const [zoomPct, setZoomPct] = useState(100);
   const [choices, setChoices] = useState<Upgrade[]>([]);
+  const [picked, setPicked] = useState<UpgradeKey | null>(null);
   const phaseRef = useRef<Phase>("menu");
   const stickRef = useRef<Vec>({ x: 0, y: 0 });
   const stickBaseRef = useRef<HTMLDivElement | null>(null);
@@ -140,18 +162,26 @@ function Index() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let w = 0;
-    let h = 0;
+    let vw = 0;
+    let vh = 0;
     let dpr = 1;
+    let zoom = 1; // <1 => daha geniş harita görünümü
+    let w = 0; // dünya genişliği
+    let h = 0;
+
+    const applySize = () => {
+      w = vw / zoom;
+      h = vh / zoom;
+    };
 
     const resize = () => {
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       const rect = canvas.getBoundingClientRect();
-      w = rect.width;
-      h = rect.height;
-      canvas.width = Math.floor(w * dpr);
-      canvas.height = Math.floor(h * dpr);
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      vw = rect.width;
+      vh = rect.height;
+      canvas.width = Math.floor(vw * dpr);
+      canvas.height = Math.floor(vh * dpr);
+      applySize();
     };
     resize();
     window.addEventListener("resize", resize);
@@ -170,15 +200,23 @@ function Index() {
       fireRate: 2.2,
       range: 260,
       invuln: 0,
+      guns: 1,
+      nova: 0,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
     let particles: Particle[] = [];
+    let items: Item[] = [];
     let elapsed = 0;
     let spawnTimer = 0;
     let fireTimer = 0;
+    let novaTimer = 0;
+    let freezeTimer = 0;
+    let burnTimer = 0;
     let nextLevelAt = 15;
+    let levelNo = 1;
     let shake = 0;
+    let flashRing = 0;
     const pointer = { active: false, x: 0, y: 0 };
 
     const burst = (x: number, y: number, n: number, hue: number, power = 3) => {
@@ -234,6 +272,8 @@ function Index() {
     };
 
     const start = () => {
+      zoom = 1;
+      applySize();
       player.x = w / 2;
       player.y = h / 2;
       player.vx = 0;
@@ -244,19 +284,27 @@ function Index() {
       player.damage = 12;
       player.fireRate = 2.2;
       player.invuln = 0;
+      player.guns = 1;
+      player.nova = 0;
       enemies = [];
       bullets = [];
       particles = [];
+      items = [];
       elapsed = 0;
       spawnTimer = 0;
       fireTimer = 0;
+      novaTimer = 0;
+      freezeTimer = 0;
+      burnTimer = 0;
       nextLevelAt = 15;
+      levelNo = 1;
       shake = 0;
       setScore(0);
       setKills(0);
       setLevel(1);
       setHp(100);
       setMaxHp(100);
+      setZoomPct(100);
       setPhase("playing");
       for (let i = 0; i < 3; i++) spawnEnemy();
     };
@@ -274,10 +322,33 @@ function Index() {
         player.fireRate *= 1.25;
       } else if (k === "heal") {
         player.hp = player.maxHp;
+      } else if (k === "nova") {
+        player.nova += 1;
+        novaTimer = Math.min(novaTimer, 2);
+      } else if (k === "guns") {
+        player.guns += 1;
       }
+      levelNo += 1;
+
+      // her 10 seviyede kuş bakışı %10 genişler
+      if (levelNo % 10 === 1 && levelNo > 1) {
+        const oldW = w;
+        const oldH = h;
+        zoom *= 0.9;
+        applySize();
+        player.x += (w - oldW) / 2;
+        player.y += (h - oldH) / 2;
+        for (const en of enemies) {
+          en.x += (w - oldW) / 2;
+          en.y += (h - oldH) / 2;
+        }
+        setZoomPct(Math.round((1 / zoom) * 100));
+        flashRing = 1;
+      }
+
       setHp(Math.ceil(player.hp));
       setMaxHp(player.maxHp);
-      setLevel((l) => l + 1);
+      setLevel(levelNo);
       setPhase("playing");
       burst(player.x, player.y, 40, 140, 4);
     };
@@ -307,8 +378,8 @@ function Index() {
 
     const pos = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      pointer.x = e.clientX - rect.left;
-      pointer.y = e.clientY - rect.top;
+      pointer.x = (e.clientX - rect.left) / zoom;
+      pointer.y = (e.clientY - rect.top) / zoom;
     };
     const onDown = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
@@ -339,6 +410,8 @@ function Index() {
         elapsed += dt;
         setScore(Math.floor(elapsed * 10) / 10);
         if (player.invuln > 0) player.invuln -= dt;
+        if (freezeTimer > 0) freezeTimer -= dt;
+        if (burnTimer > 0) burnTimer -= dt;
 
         // input
         let ax = 0;
@@ -391,7 +464,67 @@ function Index() {
           spawnTimer = Math.max(0.55, 2.0 - elapsed * 0.02);
         }
 
-        // auto attack: nearest enemy in range
+        const killEnemy = (en: Enemy) => {
+          burst(en.x, en.y, 18, en.hue, 3.5);
+          setKills((k) => k + 1);
+          if (Math.random() < 0.04) {
+            items.push({
+              x: en.x,
+              y: en.y,
+              kind: Math.random() < 0.5 ? "freeze" : "burn",
+              life: 12,
+            });
+          }
+        };
+
+        // buz patlaması (nova)
+        if (player.nova > 0) {
+          novaTimer -= dt;
+          if (novaTimer <= 0) {
+            novaTimer = Math.max(4, 10 - (player.nova - 1) * 1.5);
+            freezeTimer = Math.max(freezeTimer, 1);
+            flashRing = 1;
+            const dmg = 20 + player.nova * 15;
+            burst(player.x, player.y, 40, 195, 5);
+            for (const en of enemies) {
+              if (Math.hypot(en.x - player.x, en.y - player.y) < 260) {
+                en.hp -= dmg;
+                en.hit = 0.12;
+                if (en.hp <= 0) killEnemy(en);
+              }
+            }
+            enemies = enemies.filter((en) => en.hp > 0);
+          }
+        }
+
+        // yanma etkisi
+        if (burnTimer > 0) {
+          for (const en of enemies) {
+            en.hp -= 26 * dt;
+            if (Math.random() < 0.25) burst(en.x, en.y, 1, 25, 1);
+            if (en.hp <= 0) killEnemy(en);
+          }
+          enemies = enemies.filter((en) => en.hp > 0);
+        }
+
+        // itemler
+        for (const it of items) {
+          it.life -= dt;
+          if (Math.hypot(it.x - player.x, it.y - player.y) < player.r + 16) {
+            it.life = 0;
+            if (it.kind === "freeze") {
+              freezeTimer = Math.max(freezeTimer, 3);
+              burst(player.x, player.y, 40, 195, 5);
+            } else {
+              burnTimer = Math.max(burnTimer, 3);
+              burst(player.x, player.y, 40, 25, 5);
+            }
+            flashRing = 1;
+          }
+        }
+        items = items.filter((it) => it.life > 0);
+
+        // otomatik saldırı: en yakın düşman
         fireTimer -= dt;
         if (fireTimer <= 0 && enemies.length) {
           let target: Enemy | null = null;
@@ -406,22 +539,27 @@ function Index() {
           if (target && bd < player.range * 2.5) {
             const dx = target.x - player.x;
             const dy = target.y - player.y;
-            const d = Math.hypot(dx, dy) || 1;
+            const base = Math.atan2(dy, dx);
             const bs = 520;
-            bullets.push({
-              x: player.x,
-              y: player.y,
-              vx: (dx / d) * bs,
-              vy: (dy / d) * bs,
-              r: 4.5,
-              dmg: player.damage,
-              life: 1.6,
-            });
+            const n = player.guns;
+            const spread = 0.13;
+            for (let i = 0; i < n; i++) {
+              const a = base + (i - (n - 1) / 2) * spread;
+              bullets.push({
+                x: player.x,
+                y: player.y,
+                vx: Math.cos(a) * bs,
+                vy: Math.sin(a) * bs,
+                r: 4.5,
+                dmg: player.damage,
+                life: 1.6,
+              });
+            }
             fireTimer = 1 / player.fireRate;
           }
         }
 
-        // bullets
+        // mermiler
         for (const b of bullets) {
           b.x += b.vx * dt;
           b.y += b.vy * dt;
@@ -433,10 +571,7 @@ function Index() {
               en.hit = 0.12;
               b.life = 0;
               burst(b.x, b.y, 5, 45, 2);
-              if (en.hp <= 0) {
-                burst(en.x, en.y, 18, en.hue, 3.5);
-                setKills((k) => k + 1);
-              }
+              if (en.hp <= 0) killEnemy(en);
               break;
             }
           }
@@ -444,15 +579,18 @@ function Index() {
         bullets = bullets.filter((b) => b.life > 0 && b.x > -30 && b.x < w + 30 && b.y > -30 && b.y < h + 30);
         enemies = enemies.filter((en) => en.hp > 0);
 
+        const frozen = freezeTimer > 0;
         for (const en of enemies) {
           if (en.hit > 0) en.hit -= dt;
           const dx = player.x - en.x;
           const dy = player.y - en.y;
           const d = Math.hypot(dx, dy) || 1;
-          en.vx += ((dx / d) * enemySpeed - en.vx) * Math.min(1, dt * 3);
-          en.vy += ((dy / d) * enemySpeed - en.vy) * Math.min(1, dt * 3);
-          en.x += en.vx * dt;
-          en.y += en.vy * dt;
+          if (!frozen) {
+            en.vx += ((dx / d) * enemySpeed - en.vx) * Math.min(1, dt * 3);
+            en.vy += ((dy / d) * enemySpeed - en.vy) * Math.min(1, dt * 3);
+            en.x += en.vx * dt;
+            en.y += en.vy * dt;
+          }
           if (d < en.r + player.r && player.invuln <= 0) {
             player.hp -= 12 + steps * 3;
             player.invuln = 0.8;
@@ -466,16 +604,16 @@ function Index() {
           }
         }
 
-        // level up every 15s
+        // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
           nextLevelAt += 15;
-          setChoices(pick3());
+          setChoices(pickChoices(4));
           setPhase("upgrade");
           phaseRef.current = "upgrade";
         }
       }
 
-      // particles
+      // parçacıklar
       for (const p of particles) {
         p.life -= dt;
         p.x += p.vx * dt;
@@ -485,8 +623,10 @@ function Index() {
       }
       particles = particles.filter((p) => p.life > 0);
       if (particles.length > 600) particles = particles.slice(-600);
+      if (flashRing > 0) flashRing = Math.max(0, flashRing - dt * 1.5);
 
       // render
+      ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, 0, 0);
       ctx.save();
       if (shake > 0) {
         shake *= 0.9;
@@ -499,7 +639,7 @@ function Index() {
       ctx.fillRect(-40, -40, w + 80, h + 80);
 
       ctx.strokeStyle = "rgba(120,160,255,0.07)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / zoom;
       const grid = 48;
       ctx.beginPath();
       for (let x = 0; x < w; x += grid) {
@@ -512,6 +652,15 @@ function Index() {
       }
       ctx.stroke();
 
+      if (freezeTimer > 0) {
+        ctx.fillStyle = "rgba(90,200,255,0.10)";
+        ctx.fillRect(0, 0, w, h);
+      }
+      if (burnTimer > 0) {
+        ctx.fillStyle = "rgba(255,120,40,0.09)";
+        ctx.fillRect(0, 0, w, h);
+      }
+
       for (const p of particles) {
         const a = Math.max(0, p.life / p.max);
         ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, ${a})`;
@@ -521,11 +670,30 @@ function Index() {
       }
 
       const t = now / 1000;
+
+      for (const it of items) {
+        const bob = Math.sin(t * 4 + it.x) * 3;
+        const hue = it.kind === "freeze" ? 195 : 25;
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = `hsl(${hue},95%,60%)`;
+        ctx.fillStyle = `hsl(${hue},95%,62%)`;
+        ctx.beginPath();
+        ctx.arc(it.x, it.y + bob, 9, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#04101a";
+        ctx.font = "bold 11px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(it.kind === "freeze" ? "❄" : "🔥", it.x, it.y + bob + 1);
+      }
+
       for (const en of enemies) {
         const pulse = 1 + Math.sin(t * 6 + en.x * 0.05) * 0.08;
+        const frozen = freezeTimer > 0;
         ctx.shadowBlur = 18;
-        ctx.shadowColor = `hsl(${en.hue},90%,60%)`;
-        ctx.fillStyle = en.hit > 0 ? "#ffffff" : `hsl(${en.hue},85%,58%)`;
+        ctx.shadowColor = frozen ? "hsl(195,95%,65%)" : `hsl(${en.hue},90%,60%)`;
+        ctx.fillStyle = en.hit > 0 ? "#ffffff" : frozen ? "hsl(195,80%,62%)" : `hsl(${en.hue},85%,58%)`;
         ctx.beginPath();
         ctx.arc(en.x, en.y, en.r * pulse, 0, Math.PI * 2);
         ctx.fill();
@@ -539,7 +707,7 @@ function Index() {
           ctx.fillStyle = "rgba(0,0,0,0.45)";
           ctx.fillRect(en.x - bw / 2, en.y - en.r - 9, bw, 3.5);
           ctx.fillStyle = "hsl(140,80%,55%)";
-          ctx.fillRect(en.x - bw / 2, en.y - en.r - 9, (bw * en.hp) / en.maxHp, 3.5);
+          ctx.fillRect(en.x - bw / 2, en.y - en.r - 9, (bw * Math.max(0, en.hp)) / en.maxHp, 3.5);
         }
       }
 
@@ -569,6 +737,13 @@ function Index() {
         ctx.arc(player.x, player.y, player.r + 4 + Math.sin(t * 5) * 1.5, 0, Math.PI * 2);
         ctx.stroke();
         ctx.globalAlpha = 1;
+        if (flashRing > 0) {
+          ctx.strokeStyle = `rgba(140,230,255,${flashRing})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, 40 + (1 - flashRing) * 220, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
       ctx.restore();
     };
@@ -586,8 +761,36 @@ function Index() {
     };
   }, []);
 
-  const handleStart = useCallback(() => startRef.current(), []);
-  const handlePick = useCallback((k: UpgradeKey) => applyRef.current(k), []);
+  const handleStart = useCallback(() => {
+    setPicked(null);
+    startRef.current();
+  }, []);
+
+  const handlePick = useCallback(
+    (k: UpgradeKey) => {
+      if (picked) return;
+      setPicked(k);
+      window.setTimeout(() => {
+        applyRef.current(k);
+        setPicked(null);
+      }, 500);
+    },
+    [picked],
+  );
+
+  // 1-4 tuşları ile seçim
+  useEffect(() => {
+    if (phase !== "upgrade") return;
+    const onKey = (e: KeyboardEvent) => {
+      const i = ["1", "2", "3", "4"].indexOf(e.key);
+      if (i >= 0 && choices[i]) {
+        e.preventDefault();
+        handlePick(choices[i]!.key);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [phase, choices, handlePick]);
 
   return (
     <main className="arena-page">
@@ -606,6 +809,10 @@ function Index() {
             <span className="stat">
               <small>Öldürme</small>
               {kills}
+            </span>
+            <span className="stat">
+              <small>Görüş</small>
+              {zoomPct}%
             </span>
             <span className="stat">
               <small>Rekor</small>
@@ -627,24 +834,6 @@ function Index() {
         <div className="arena-stage">
           <canvas ref={canvasRef} className="arena-canvas" />
 
-          {phase === "upgrade" && (
-            <div className="arena-overlay">
-              <div className="arena-card arena-card-wide">
-                <h2>Seviye Atladın!</h2>
-                <p>Bir güçlendirme seç</p>
-                <div className="arena-choices">
-                  {choices.map((c) => (
-                    <button key={c.key} className="arena-choice" onClick={() => handlePick(c.key)}>
-                      <span className="arena-choice-icon">{c.icon}</span>
-                      <strong>{c.title}</strong>
-                      <em>{c.desc}</em>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {(phase === "menu" || phase === "over") && (
             <div className="arena-overlay">
               <div className="arena-card">
@@ -653,7 +842,7 @@ function Index() {
                     <h2>Hayatta kal</h2>
                     <p>
                       WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Karakterin en yakın düşmana
-                      otomatik ateş eder. Her 15 saniyede güçlendirme seç.
+                      otomatik ateş eder. Her 15 saniyede güçlendirme seç (1-4 tuşları).
                     </p>
                     <button className="arena-btn" onClick={handleStart}>
                       Oyunu Başlat
@@ -682,8 +871,33 @@ function Index() {
           )}
         </div>
 
+        {phase === "upgrade" && (
+          <section className="arena-panel">
+            <div className="arena-panel-head">
+              <strong>Seviye {level + 1} · Bir güçlendirme seç</strong>
+              <span>{picked ? "Devam ediliyor…" : "1 · 2 · 3 · 4 tuşlarıyla da seçebilirsin"}</span>
+            </div>
+            <div className="arena-choices arena-choices-4">
+              {choices.map((c, i) => (
+                <button
+                  key={c.key}
+                  className={`arena-choice${picked === c.key ? " is-picked" : ""}`}
+                  disabled={!!picked}
+                  onClick={() => handlePick(c.key)}
+                >
+                  <span className="arena-choice-num">{i + 1}</span>
+                  <span className="arena-choice-icon">{c.icon}</span>
+                  <strong>{c.title}</strong>
+                  <em>{c.desc}</em>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
-        <p className="arena-hint">Düşmanlar her 15 saniyede hızlanır ve güçlenir.</p>
+        <p className="arena-hint">
+          Düşmanlar her 15 saniyede hızlanır. Nadir düşenler: ❄ 3 sn dondurma, 🔥 3 sn yakma.
+        </p>
       </div>
     </main>
   );
