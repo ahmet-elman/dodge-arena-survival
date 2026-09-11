@@ -438,3 +438,67 @@
   box-shadow: 0 0 18px hsl(190 100% 60% / 0.55);
   pointer-events: none;
 }
+
+/* Alt yükseltme paneli */
+.arena-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.75rem 0.85rem 0.9rem;
+  border-radius: 1rem;
+  background: rgba(20, 27, 48, 0.72);
+  border: 1px solid rgba(150, 190, 255, 0.22);
+  animation: arena-pop 0.2s ease-out;
+}
+
+.arena-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.arena-panel-head span {
+  font-size: 0.74rem;
+  opacity: 0.6;
+}
+
+.arena-choices-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .arena-choices-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.arena-choice {
+  position: relative;
+}
+
+.arena-choice-num {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 0.05rem 0.36rem;
+  border-radius: 999px;
+  background: rgba(110, 231, 255, 0.18);
+  border: 1px solid rgba(110, 231, 255, 0.4);
+  opacity: 0.85;
+}
+
+.arena-choice.is-picked {
+  background: rgba(110, 231, 255, 0.22);
+  border-color: rgba(110, 231, 255, 0.75);
+  transform: translateY(-2px);
+}
+
+.arena-choice:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
