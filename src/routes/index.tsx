@@ -31,6 +31,7 @@ type ItemKind = "freeze" | "burn";
 type Item = Vec & { kind: ItemKind; life: number };
 
 type Phase = "menu" | "playing" | "upgrade" | "over";
+type Mode = "classic" | "flame";
 
 type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns";
 type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string; weight: number };
@@ -83,11 +84,12 @@ function Index() {
   const [choices, setChoices] = useState<Upgrade[]>([]);
   const [picked, setPicked] = useState<UpgradeKey | null>(null);
   const phaseRef = useRef<Phase>("menu");
+  const [mode, setMode] = useState<Mode>("classic");
   const stickRef = useRef<Vec>({ x: 0, y: 0 });
   const stickBaseRef = useRef<HTMLDivElement | null>(null);
   const stickKnobRef = useRef<HTMLDivElement | null>(null);
   const [isTouch, setIsTouch] = useState(false);
-  const startRef = useRef<() => void>(() => {});
+  const startRef = useRef<(m: Mode) => void>(() => {});
   const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
   useEffect(() => {
@@ -202,6 +204,8 @@ function Index() {
       invuln: 0,
       guns: 1,
       nova: 0,
+      flame: false,
+      flameRange: 120,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
@@ -271,21 +275,24 @@ function Index() {
       burst(x, y, 8, 355, 2);
     };
 
-    const start = () => {
+    const start = (m: Mode = "classic") => {
       zoom = 1;
       applySize();
+      const flame = m === "flame";
       player.x = w / 2;
       player.y = h / 2;
       player.vx = 0;
       player.vy = 0;
-      player.maxHp = 100;
-      player.hp = 100;
+      player.maxHp = flame ? 150 : 100;
+      player.hp = player.maxHp;
       player.speed = 340;
       player.damage = 12;
       player.fireRate = 2.2;
       player.invuln = 0;
       player.guns = 1;
       player.nova = 0;
+      player.flame = flame;
+      player.flameRange = 120;
       enemies = [];
       bullets = [];
       particles = [];
@@ -302,8 +309,8 @@ function Index() {
       setScore(0);
       setKills(0);
       setLevel(1);
-      setHp(100);
-      setMaxHp(100);
+      setHp(player.maxHp);
+      setMaxHp(player.maxHp);
       setZoomPct(100);
       setPhase("playing");
       for (let i = 0; i < 3; i++) spawnEnemy();
