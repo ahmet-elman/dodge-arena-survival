@@ -256,7 +256,7 @@ function Index() {
         y = Math.random() * h;
       }
       const tier = Math.floor(elapsed / 15);
-      const maxHpE = 14 + tier * 9;
+      const maxHpE = 14 + tier * 6;
       enemies.push({
         x,
         y,
@@ -456,7 +456,7 @@ function Index() {
 
         // difficulty
         const steps = Math.floor(elapsed / 15);
-        const enemySpeed = 90 * Math.pow(1.18, steps);
+        const enemySpeed = 90 + steps * 7;
 
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
@@ -527,24 +527,18 @@ function Index() {
         // otomatik saldırı: en yakın düşman
         fireTimer -= dt;
         if (fireTimer <= 0 && enemies.length) {
-          let target: Enemy | null = null;
-          let bd = Infinity;
-          for (const en of enemies) {
-            const d = Math.hypot(en.x - player.x, en.y - player.y);
-            if (d < bd) {
-              bd = d;
-              target = en;
-            }
-          }
-          if (target && bd < player.range * 2.5) {
-            const dx = target.x - player.x;
-            const dy = target.y - player.y;
-            const base = Math.atan2(dy, dx);
+          const maxRange = player.range * 2.5;
+          const inRange = enemies
+            .map((en) => ({ en, d: Math.hypot(en.x - player.x, en.y - player.y) }))
+            .filter((o) => o.d < maxRange)
+            .sort((a, b) => a.d - b.d);
+          if (inRange.length) {
             const bs = 520;
             const n = player.guns;
-            const spread = 0.13;
             for (let i = 0; i < n; i++) {
-              const a = base + (i - (n - 1) / 2) * spread;
+              // her silah farklı bir hedefe kilitlenir; hedef azsa en yakınlara döner
+              const t = inRange[i % inRange.length].en;
+              const a = Math.atan2(t.y - player.y, t.x - player.x);
               bullets.push({
                 x: player.x,
                 y: player.y,
@@ -592,7 +586,7 @@ function Index() {
             en.y += en.vy * dt;
           }
           if (d < en.r + player.r && player.invuln <= 0) {
-            player.hp -= 12 + steps * 3;
+            player.hp -= 10 + steps * 1.5;
             player.invuln = 0.8;
             shake = 10;
             burst(player.x, player.y, 14, 0, 3);
