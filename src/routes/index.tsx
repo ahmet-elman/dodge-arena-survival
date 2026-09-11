@@ -534,9 +534,30 @@ function Index() {
         }
         items = items.filter((it) => it.life > 0);
 
+        // alev silahı: sadece yakındaki düşmanlara sürekli hasar
+        if (player.flame) {
+          const fr = player.flameRange;
+          const dps = player.damage * player.fireRate * 1.6;
+          for (const en of enemies) {
+            const d = Math.hypot(en.x - player.x, en.y - player.y);
+            if (d < fr + en.r) {
+              en.hp -= dps * dt;
+              en.hit = 0.06;
+              if (Math.random() < 0.5) burst(en.x, en.y, 1, 25, 1.5);
+              if (en.hp <= 0) killEnemy(en);
+            }
+          }
+          enemies = enemies.filter((en) => en.hp > 0);
+          if (Math.random() < 0.9) {
+            const a = Math.random() * Math.PI * 2;
+            const rr = Math.random() * fr;
+            burst(player.x + Math.cos(a) * rr, player.y + Math.sin(a) * rr, 1, 20 + Math.random() * 25, 0.8);
+          }
+        }
+
         // otomatik saldırı: en yakın düşman
         fireTimer -= dt;
-        if (fireTimer <= 0 && enemies.length) {
+        if (!player.flame && fireTimer <= 0 && enemies.length) {
           const maxRange = player.range * 2.5;
           const inRange = enemies
             .map((en) => ({ en, d: Math.hypot(en.x - player.x, en.y - player.y) }))
@@ -562,6 +583,7 @@ function Index() {
             fireTimer = 1 / player.fireRate;
           }
         }
+
 
         // mermiler
         for (const b of bullets) {
