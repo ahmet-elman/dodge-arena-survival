@@ -275,21 +275,24 @@ function Index() {
       burst(x, y, 8, 355, 2);
     };
 
-    const start = () => {
+    const start = (m: Mode = "classic") => {
       zoom = 1;
       applySize();
+      const flame = m === "flame";
       player.x = w / 2;
       player.y = h / 2;
       player.vx = 0;
       player.vy = 0;
-      player.maxHp = 100;
-      player.hp = 100;
+      player.maxHp = flame ? 150 : 100;
+      player.hp = player.maxHp;
       player.speed = 340;
       player.damage = 12;
       player.fireRate = 2.2;
       player.invuln = 0;
       player.guns = 1;
       player.nova = 0;
+      player.flame = flame;
+      player.flameRange = 120;
       enemies = [];
       bullets = [];
       particles = [];
@@ -306,8 +309,8 @@ function Index() {
       setScore(0);
       setKills(0);
       setLevel(1);
-      setHp(100);
-      setMaxHp(100);
+      setHp(player.maxHp);
+      setMaxHp(player.maxHp);
       setZoomPct(100);
       setPhase("playing");
       for (let i = 0; i < 3; i++) spawnEnemy();
