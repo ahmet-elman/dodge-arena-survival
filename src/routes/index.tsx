@@ -339,8 +339,8 @@ function Index() {
       }
       levelNo += 1;
 
-      // her 10 seviyede kuş bakışı %10 genişler
-      if (levelNo % 10 === 1 && levelNo > 1) {
+      // her 5 seviyede kuş bakışı %10 genişler
+      if (levelNo % 5 === 1 && levelNo > 1) {
         const oldW = w;
         const oldH = h;
         zoom *= 0.9;
