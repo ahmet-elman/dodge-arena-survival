@@ -456,7 +456,7 @@ function Index() {
 
         // difficulty
         const steps = Math.floor(elapsed / 15);
-        const enemySpeed = 95 + steps * 16;
+        const enemySpeed = 140 + steps * 26;
 
         if (freezeTimer <= 0) {
           spawnTimer -= dt;
