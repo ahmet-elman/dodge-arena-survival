@@ -869,23 +869,40 @@ function Index() {
                   <>
                     <h2>Hayatta kal</h2>
                     <p>
-                      WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Karakterin en yakın düşmana
-                      otomatik ateş eder. Her 15 saniyede güçlendirme seç (1-4 tuşları).
+                      WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Her 15 saniyede güçlendirme
+                      seç (1-4 tuşları). Bir mod seç:
                     </p>
-                    <button className="arena-btn" onClick={handleStart}>
-                      Oyunu Başlat
-                    </button>
+                    <div className="arena-modes">
+                      <button className="arena-btn" onClick={() => handleStart("classic")}>
+                        🔫 Klasik Silah
+                      </button>
+                      <button className="arena-btn arena-btn-flame" onClick={() => handleStart("flame")}>
+                        🔥 Alev Silahı
+                      </button>
+                    </div>
+                    <p className="arena-modehint">
+                      Alev modu: 150 can ile başlarsın, sadece yaklaşan düşmanlar yanar.
+                    </p>
                   </>
                 ) : (
                   <>
                     <h2>Oyun Bitti</h2>
                     <p className="arena-score">{score.toFixed(1)}s</p>
                     <p>
-                      Rekor: {best.toFixed(1)}s · {kills} düşman
+                      Rekor: {best.toFixed(1)}s · {kills} düşman ·{" "}
+                      {mode === "flame" ? "Alev modu" : "Klasik mod"}
                     </p>
-                    <button className="arena-btn" onClick={handleStart}>
-                      Tekrar Oyna
-                    </button>
+                    <div className="arena-modes">
+                      <button className="arena-btn" onClick={() => handleStart(mode)}>
+                        Tekrar Oyna
+                      </button>
+                      <button
+                        className="arena-btn arena-btn-flame"
+                        onClick={() => handleStart(mode === "flame" ? "classic" : "flame")}
+                      >
+                        {mode === "flame" ? "🔫 Klasik Mod" : "🔥 Alev Modu"}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>
