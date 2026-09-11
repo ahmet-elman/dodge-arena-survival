@@ -52,8 +52,9 @@ const UPGRADES: Upgrade[] = [
   { key: "guns", title: "Ekstra Silah", desc: "Aynı anda bir mermi daha ateşlersin", icon: "🔫", weight: 3 },
 ];
 
-function pickChoices(n: number): Upgrade[] {
-  const pool = UPGRADES.map((u) => ({ ...u }));
+function pickChoices(n: number, mode: Mode = "classic"): Upgrade[] {
+  const banned: UpgradeKey[] = mode === "flame" ? ["firerate", "guns"] : [];
+  const pool = UPGRADES.filter((u) => !banned.includes(u.key)).map((u) => ({ ...u }));
   const out: Upgrade[] = [];
   while (out.length < n && pool.length) {
     const total = pool.reduce((s, u) => s + u.weight, 0);
@@ -205,7 +206,7 @@ function Index() {
       guns: 1,
       nova: 0,
       flame: false,
-      flameRange: 120,
+      flameRange: 96,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
@@ -260,7 +261,7 @@ function Index() {
         y = Math.random() * h;
       }
       const tier = Math.floor(elapsed / 15);
-      const maxHpE = 14 + tier * 6;
+      const maxHpE = 16 + tier * 8 + tier * tier * 1.6;
       enemies.push({
         x,
         y,
@@ -292,7 +293,7 @@ function Index() {
       player.guns = 1;
       player.nova = 0;
       player.flame = flame;
-      player.flameRange = 120;
+      player.flameRange = 96;
       enemies = [];
       bullets = [];
       particles = [];
@@ -464,7 +465,7 @@ function Index() {
 
         // difficulty
         const steps = Math.floor(elapsed / 15);
-        const enemySpeed = 140 + steps * 26;
+        const enemySpeed = 150 + steps * 26 + steps * steps * 2.2;
 
         if (freezeTimer <= 0) {
           spawnTimer -= dt;
@@ -544,15 +545,15 @@ function Index() {
             if (d < fr + en.r) {
               en.hp -= dps * dt;
               en.hit = 0.06;
-              if (Math.random() < 0.5) burst(en.x, en.y, 1, 25, 1.5);
+              if (Math.random() < 0.15) burst(en.x, en.y, 1, 28, 1.0);
               if (en.hp <= 0) killEnemy(en);
             }
           }
           enemies = enemies.filter((en) => en.hp > 0);
-          if (Math.random() < 0.9) {
+          if (Math.random() < 0.25) {
             const a = Math.random() * Math.PI * 2;
             const rr = Math.random() * fr;
-            burst(player.x + Math.cos(a) * rr, player.y + Math.sin(a) * rr, 1, 20 + Math.random() * 25, 0.8);
+            burst(player.x + Math.cos(a) * rr, player.y + Math.sin(a) * rr, 1, 28, 0.6);
           }
         }
 
@@ -619,7 +620,7 @@ function Index() {
             en.y += en.vy * dt;
           }
           if (d < en.r + player.r && player.invuln <= 0) {
-            player.hp -= 10 + steps * 1.5;
+            player.hp -= 12 + steps * 2 + steps * steps * 0.25;
             player.invuln = 0.8;
             shake = 10;
             burst(player.x, player.y, 14, 0, 3);
@@ -634,7 +635,7 @@ function Index() {
         // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
           nextLevelAt += 15;
-          setChoices(pickChoices(4));
+          setChoices(pickChoices(4, player.flame ? "flame" : "classic"));
           setPhase("upgrade");
           phaseRef.current = "upgrade";
         }
@@ -752,14 +753,14 @@ function Index() {
         if (player.flame) {
           const fr = player.flameRange * (1 + Math.sin(t * 8) * 0.02);
           const fg = ctx.createRadialGradient(player.x, player.y, player.r, player.x, player.y, fr);
-          fg.addColorStop(0, "rgba(255,220,120,0.30)");
-          fg.addColorStop(0.6, "rgba(255,120,40,0.16)");
-          fg.addColorStop(1, "rgba(255,60,20,0)");
+          fg.addColorStop(0, "rgba(255,170,90,0.16)");
+          fg.addColorStop(0.7, "rgba(255,140,70,0.08)");
+          fg.addColorStop(1, "rgba(255,130,60,0)");
           ctx.fillStyle = fg;
           ctx.beginPath();
           ctx.arc(player.x, player.y, fr, 0, Math.PI * 2);
           ctx.fill();
-          ctx.strokeStyle = "rgba(255,150,60,0.35)";
+          ctx.strokeStyle = "rgba(255,160,90,0.22)";
           ctx.lineWidth = 2;
           ctx.stroke();
         }
