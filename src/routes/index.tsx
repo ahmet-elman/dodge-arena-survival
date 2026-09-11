@@ -456,13 +456,16 @@ function Index() {
 
         // difficulty
         const steps = Math.floor(elapsed / 15);
-        const enemySpeed = 90 + steps * 7;
+        const enemySpeed = 95 + steps * 16;
 
-        spawnTimer -= dt;
-        if (spawnTimer <= 0) {
-          spawnEnemy();
-          spawnTimer = Math.max(0.55, 2.0 - elapsed * 0.02);
+        if (freezeTimer <= 0) {
+          spawnTimer -= dt;
+          if (spawnTimer <= 0) {
+            spawnEnemy();
+            spawnTimer = Math.max(0.55, 2.0 - elapsed * 0.02);
+          }
         }
+
 
         const killEnemy = (en: Enemy) => {
           burst(en.x, en.y, 18, en.hue, 3.5);
