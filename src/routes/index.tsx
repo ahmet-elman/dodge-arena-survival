@@ -333,7 +333,8 @@ function Index() {
         player.nova += 1;
         novaTimer = Math.min(novaTimer, 2);
       } else if (k === "guns") {
-        player.guns += 1;
+        if (player.flame) player.flameRange += 28;
+        else player.guns += 1;
       }
       levelNo += 1;
 
@@ -787,9 +788,10 @@ function Index() {
     };
   }, []);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback((m: Mode) => {
     setPicked(null);
-    startRef.current();
+    setMode(m);
+    startRef.current(m);
   }, []);
 
   const handlePick = useCallback(
