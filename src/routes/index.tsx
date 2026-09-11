@@ -204,6 +204,8 @@ function Index() {
       invuln: 0,
       guns: 1,
       nova: 0,
+      flame: false,
+      flameRange: 120,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
