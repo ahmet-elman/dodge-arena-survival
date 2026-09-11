@@ -84,11 +84,12 @@ function Index() {
   const [choices, setChoices] = useState<Upgrade[]>([]);
   const [picked, setPicked] = useState<UpgradeKey | null>(null);
   const phaseRef = useRef<Phase>("menu");
+  const [mode, setMode] = useState<Mode>("classic");
   const stickRef = useRef<Vec>({ x: 0, y: 0 });
   const stickBaseRef = useRef<HTMLDivElement | null>(null);
   const stickKnobRef = useRef<HTMLDivElement | null>(null);
   const [isTouch, setIsTouch] = useState(false);
-  const startRef = useRef<() => void>(() => {});
+  const startRef = useRef<(m: Mode) => void>(() => {});
   const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
   useEffect(() => {
