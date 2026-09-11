@@ -333,6 +333,8 @@ function Index() {
       } else if (k === "nova") {
         player.nova += 1;
         novaTimer = Math.min(novaTimer, 2);
+      } else if (k === "range") {
+        player.flameRange *= 1.2;
       } else if (k === "guns") {
         if (player.flame) player.flameRange += 28;
         else player.guns += 1;
