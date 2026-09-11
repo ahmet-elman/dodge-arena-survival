@@ -749,6 +749,20 @@ function Index() {
       }
 
       if (phaseRef.current === "playing" || phaseRef.current === "upgrade") {
+        if (player.flame) {
+          const fr = player.flameRange * (1 + Math.sin(t * 8) * 0.02);
+          const fg = ctx.createRadialGradient(player.x, player.y, player.r, player.x, player.y, fr);
+          fg.addColorStop(0, "rgba(255,220,120,0.30)");
+          fg.addColorStop(0.6, "rgba(255,120,40,0.16)");
+          fg.addColorStop(1, "rgba(255,60,20,0)");
+          ctx.fillStyle = fg;
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, fr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,150,60,0.35)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
         const flash = player.invuln > 0 && Math.floor(t * 20) % 2 === 0;
         ctx.globalAlpha = flash ? 0.45 : 1;
         ctx.shadowBlur = 24;
