@@ -333,7 +333,8 @@ function Index() {
         player.nova += 1;
         novaTimer = Math.min(novaTimer, 2);
       } else if (k === "guns") {
-        player.guns += 1;
+        if (player.flame) player.flameRange += 28;
+        else player.guns += 1;
       }
       levelNo += 1;
 
@@ -534,9 +535,30 @@ function Index() {
         }
         items = items.filter((it) => it.life > 0);
 
+        // alev silahı: sadece yakındaki düşmanlara sürekli hasar
+        if (player.flame) {
+          const fr = player.flameRange;
+          const dps = player.damage * player.fireRate * 1.6;
+          for (const en of enemies) {
+            const d = Math.hypot(en.x - player.x, en.y - player.y);
+            if (d < fr + en.r) {
+              en.hp -= dps * dt;
+              en.hit = 0.06;
+              if (Math.random() < 0.5) burst(en.x, en.y, 1, 25, 1.5);
+              if (en.hp <= 0) killEnemy(en);
+            }
+          }
+          enemies = enemies.filter((en) => en.hp > 0);
+          if (Math.random() < 0.9) {
+            const a = Math.random() * Math.PI * 2;
+            const rr = Math.random() * fr;
+            burst(player.x + Math.cos(a) * rr, player.y + Math.sin(a) * rr, 1, 20 + Math.random() * 25, 0.8);
+          }
+        }
+
         // otomatik saldırı: en yakın düşman
         fireTimer -= dt;
-        if (fireTimer <= 0 && enemies.length) {
+        if (!player.flame && fireTimer <= 0 && enemies.length) {
           const maxRange = player.range * 2.5;
           const inRange = enemies
             .map((en) => ({ en, d: Math.hypot(en.x - player.x, en.y - player.y) }))
@@ -562,6 +584,7 @@ function Index() {
             fireTimer = 1 / player.fireRate;
           }
         }
+
 
         // mermiler
         for (const b of bullets) {
@@ -726,6 +749,20 @@ function Index() {
       }
 
       if (phaseRef.current === "playing" || phaseRef.current === "upgrade") {
+        if (player.flame) {
+          const fr = player.flameRange * (1 + Math.sin(t * 8) * 0.02);
+          const fg = ctx.createRadialGradient(player.x, player.y, player.r, player.x, player.y, fr);
+          fg.addColorStop(0, "rgba(255,220,120,0.30)");
+          fg.addColorStop(0.6, "rgba(255,120,40,0.16)");
+          fg.addColorStop(1, "rgba(255,60,20,0)");
+          ctx.fillStyle = fg;
+          ctx.beginPath();
+          ctx.arc(player.x, player.y, fr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(255,150,60,0.35)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
         const flash = player.invuln > 0 && Math.floor(t * 20) % 2 === 0;
         ctx.globalAlpha = flash ? 0.45 : 1;
         ctx.shadowBlur = 24;
@@ -765,9 +802,10 @@ function Index() {
     };
   }, []);
 
-  const handleStart = useCallback(() => {
+  const handleStart = useCallback((m: Mode) => {
     setPicked(null);
-    startRef.current();
+    setMode(m);
+    startRef.current(m);
   }, []);
 
   const handlePick = useCallback(
@@ -845,23 +883,40 @@ function Index() {
                   <>
                     <h2>Hayatta kal</h2>
                     <p>
-                      WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Karakterin en yakın düşmana
-                      otomatik ateş eder. Her 15 saniyede güçlendirme seç (1-4 tuşları).
+                      WASD, ok tuşları veya dokunmatikte sürükle ile hareket et. Her 15 saniyede güçlendirme
+                      seç (1-4 tuşları). Bir mod seç:
                     </p>
-                    <button className="arena-btn" onClick={handleStart}>
-                      Oyunu Başlat
-                    </button>
+                    <div className="arena-modes">
+                      <button className="arena-btn" onClick={() => handleStart("classic")}>
+                        🔫 Klasik Silah
+                      </button>
+                      <button className="arena-btn arena-btn-flame" onClick={() => handleStart("flame")}>
+                        🔥 Alev Silahı
+                      </button>
+                    </div>
+                    <p className="arena-modehint">
+                      Alev modu: 150 can ile başlarsın, sadece yaklaşan düşmanlar yanar.
+                    </p>
                   </>
                 ) : (
                   <>
                     <h2>Oyun Bitti</h2>
                     <p className="arena-score">{score.toFixed(1)}s</p>
                     <p>
-                      Rekor: {best.toFixed(1)}s · {kills} düşman
+                      Rekor: {best.toFixed(1)}s · {kills} düşman ·{" "}
+                      {mode === "flame" ? "Alev modu" : "Klasik mod"}
                     </p>
-                    <button className="arena-btn" onClick={handleStart}>
-                      Tekrar Oyna
-                    </button>
+                    <div className="arena-modes">
+                      <button className="arena-btn" onClick={() => handleStart(mode)}>
+                        Tekrar Oyna
+                      </button>
+                      <button
+                        className="arena-btn arena-btn-flame"
+                        onClick={() => handleStart(mode === "flame" ? "classic" : "flame")}
+                      >
+                        {mode === "flame" ? "🔫 Klasik Mod" : "🔥 Alev Modu"}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

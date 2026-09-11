@@ -502,3 +502,22 @@
   cursor: default;
   opacity: 0.75;
 }
+
+.arena-modes {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.arena-btn-flame {
+  color: #240a02;
+  background: linear-gradient(92deg, #ffd166, #ff6b35);
+  box-shadow: 0 10px 30px -10px rgba(255, 120, 50, 0.8);
+}
+
+.arena-modehint {
+  margin: 0.7rem 0 0 !important;
+  font-size: 0.76rem !important;
+  opacity: 0.6 !important;
+}
