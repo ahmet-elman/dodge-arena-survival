@@ -537,7 +537,7 @@ function Index() {
             const n = player.guns;
             for (let i = 0; i < n; i++) {
               // her silah farklı bir hedefe kilitlenir; hedef azsa en yakınlara döner
-              const t = inRange[i % inRange.length].en;
+              const t = inRange[i % inRange.length]!.en;
               const a = Math.atan2(t.y - player.y, t.x - player.x);
               bullets.push({
                 x: player.x,
