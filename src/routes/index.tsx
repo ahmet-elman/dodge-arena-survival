@@ -1,5 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, useCallback } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { Leaderboard } from "@/components/Leaderboard";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -94,9 +97,61 @@ function Index() {
   const startRef = useRef<(m: Mode) => void>(() => {});
   const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [boardKey, setBoardKey] = useState(0);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUserName("");
+      return;
+    }
+    void supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setUserName(data?.username ?? user.email?.split("@")[0] ?? "oyuncu"));
+  }, [user]);
+
+  useEffect(() => {
+    if (phase !== "over") return;
+    if (!user) {
+      setSaveNote("Skorunu kaydetmek ve sıralamaya girmek için giriş yap.");
+      return;
+    }
+    let cancelled = false;
+    setSaveNote("Skor kaydediliyor…");
+    void supabase
+      .from("scores")
+      .insert({ user_id: user.id, mode, score, kills, level })
+      .then(({ error }) => {
+        if (cancelled) return;
+        setSaveNote(error ? "Skor kaydedilemedi." : "Skorun kaydedildi!");
+        if (!error) setBoardKey((k) => k + 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, user]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    void navigate({ to: "/auth" });
+  };
 
   useEffect(() => {
     setIsTouch(
@@ -841,6 +896,25 @@ function Index() {
   return (
     <main className="arena-page">
       <div className="arena-wrap">
+        <div className="arena-account">
+          {user ? (
+            <>
+              <span>
+                Merhaba, <strong>{userName}</strong>
+              </span>
+              <button className="arena-tab" onClick={signOut}>
+                Çıkış yap
+              </button>
+            </>
+          ) : (
+            <>
+              <span>Rekorlarını kaydetmek için giriş yap</span>
+              <Link to="/auth" className="arena-tab is-active">
+                Giriş / Kayıt
+              </Link>
+            </>
+          )}
+        </div>
         <header className="arena-head">
           <h1 className="arena-title">Dodge Arena</h1>
           <div className="arena-stats">
@@ -910,6 +984,7 @@ function Index() {
                       Rekor: {best.toFixed(1)}s · {kills} düşman ·{" "}
                       {mode === "flame" ? "Alev modu" : "Klasik mod"}
                     </p>
+                    {saveNote && <p className="arena-msg">{saveNote}</p>}
                     <div className="arena-modes">
                       <button className="arena-btn" onClick={() => handleStart(mode)}>
                         Tekrar Oyna
@@ -961,6 +1036,8 @@ function Index() {
         <p className="arena-hint">
           Düşmanlar her 15 saniyede hızlanır. Nadir düşenler: ❄ 3 sn dondurma, 🔥 3 sn yakma.
         </p>
+
+        <Leaderboard refreshKey={boardKey} />
       </div>
     </main>
   );
