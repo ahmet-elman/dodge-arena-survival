@@ -1036,6 +1036,8 @@ function Index() {
         <p className="arena-hint">
           Düşmanlar her 15 saniyede hızlanır. Nadir düşenler: ❄ 3 sn dondurma, 🔥 3 sn yakma.
         </p>
+
+        <Leaderboard refreshKey={boardKey} />
       </div>
     </main>
   );
