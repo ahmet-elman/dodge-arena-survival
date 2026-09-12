@@ -97,9 +97,61 @@ function Index() {
   const startRef = useRef<(m: Mode) => void>(() => {});
   const applyRef = useRef<(k: UpgradeKey) => void>(() => {});
 
+  const navigate = useNavigate();
+  const [user, setUser] = useState<User | null>(null);
+  const [userName, setUserName] = useState<string>("");
+  const [boardKey, setBoardKey] = useState(0);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
+    const { data } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setUserName("");
+      return;
+    }
+    void supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setUserName(data?.username ?? user.email?.split("@")[0] ?? "oyuncu"));
+  }, [user]);
+
+  useEffect(() => {
+    if (phase !== "over") return;
+    if (!user) {
+      setSaveNote("Skorunu kaydetmek ve sıralamaya girmek için giriş yap.");
+      return;
+    }
+    let cancelled = false;
+    setSaveNote("Skor kaydediliyor…");
+    void supabase
+      .from("scores")
+      .insert({ user_id: user.id, mode, score, kills, level })
+      .then(({ error }) => {
+        if (cancelled) return;
+        setSaveNote(error ? "Skor kaydedilemedi." : "Skorun kaydedildi!");
+        if (!error) setBoardKey((k) => k + 1);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, user]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    void navigate({ to: "/auth" });
+  };
 
   useEffect(() => {
     setIsTouch(
