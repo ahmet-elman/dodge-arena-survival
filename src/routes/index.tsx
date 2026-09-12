@@ -33,7 +33,7 @@ type Item = Vec & { kind: ItemKind; life: number };
 type Phase = "menu" | "playing" | "upgrade" | "over";
 type Mode = "classic" | "flame";
 
-type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns";
+type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns" | "range";
 type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string; weight: number };
 
 const UPGRADES: Upgrade[] = [
@@ -49,11 +49,12 @@ const UPGRADES: Upgrade[] = [
     icon: "❄",
     weight: 8,
   },
+  { key: "range", title: "Alev Menzili +20%", desc: "Alevin ulaştığı alan genişler", icon: "🌡", weight: 9 },
   { key: "guns", title: "Ekstra Silah", desc: "Aynı anda bir mermi daha ateşlersin", icon: "🔫", weight: 3 },
 ];
 
 function pickChoices(n: number, mode: Mode = "classic"): Upgrade[] {
-  const banned: UpgradeKey[] = mode === "flame" ? ["firerate", "guns"] : [];
+  const banned: UpgradeKey[] = mode === "flame" ? ["firerate", "guns"] : ["range"];
   const pool = UPGRADES.filter((u) => !banned.includes(u.key)).map((u) => ({ ...u }));
   const out: Upgrade[] = [];
   while (out.length < n && pool.length) {
