@@ -984,6 +984,7 @@ function Index() {
                       Rekor: {best.toFixed(1)}s · {kills} düşman ·{" "}
                       {mode === "flame" ? "Alev modu" : "Klasik mod"}
                     </p>
+                    {saveNote && <p className="arena-msg">{saveNote}</p>}
                     <div className="arena-modes">
                       <button className="arena-btn" onClick={() => handleStart(mode)}>
                         Tekrar Oyna
