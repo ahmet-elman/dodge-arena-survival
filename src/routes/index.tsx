@@ -896,6 +896,25 @@ function Index() {
   return (
     <main className="arena-page">
       <div className="arena-wrap">
+        <div className="arena-account">
+          {user ? (
+            <>
+              <span>
+                Merhaba, <strong>{userName}</strong>
+              </span>
+              <button className="arena-tab" onClick={signOut}>
+                Çıkış yap
+              </button>
+            </>
+          ) : (
+            <>
+              <span>Rekorlarını kaydetmek için giriş yap</span>
+              <Link to="/auth" className="arena-tab is-active">
+                Giriş / Kayıt
+              </Link>
+            </>
+          )}
+        </div>
         <header className="arena-head">
           <h1 className="arena-title">Dodge Arena</h1>
           <div className="arena-stats">
