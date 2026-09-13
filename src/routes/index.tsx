@@ -114,6 +114,21 @@ function Index() {
   const [boardKey, setBoardKey] = useState(0);
   const [saveNote, setSaveNote] = useState<string | null>(null);
 
+  // --- online co-op ---
+  const netRef = useRef<OnlineSession | null>(null);
+  const peersRef = useRef<Peer[]>([]);
+  const onlineRef = useRef(false);
+  const [onlineOpen, setOnlineOpen] = useState(false);
+  const [room, setRoom] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
+  const [isHost, setIsHost] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [onlineNote, setOnlineNote] = useState<string | null>(null);
+  const [onlineBusy, setOnlineBusy] = useState(false);
+  const [scoreboard, setScoreboard] = useState<Peer[]>([]);
+  const [isOnline, setIsOnline] = useState(false);
+
+
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
