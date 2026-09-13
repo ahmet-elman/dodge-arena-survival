@@ -3,6 +3,16 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Leaderboard } from "@/components/Leaderboard";
+import {
+  MAX_PLAYERS,
+  OnlineSession,
+  createRoom,
+  findQuickRoom,
+  roomExists,
+  setRoomPlayers,
+  setRoomStatus,
+} from "@/lib/online";
+import type { Peer, RosterEntry } from "@/lib/online";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -103,6 +113,21 @@ function Index() {
   const [userName, setUserName] = useState<string>("");
   const [boardKey, setBoardKey] = useState(0);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+
+  // --- online co-op ---
+  const netRef = useRef<OnlineSession | null>(null);
+  const peersRef = useRef<Peer[]>([]);
+  const onlineRef = useRef(false);
+  const [onlineOpen, setOnlineOpen] = useState(false);
+  const [room, setRoom] = useState<string | null>(null);
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
+  const [isHost, setIsHost] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [onlineNote, setOnlineNote] = useState<string | null>(null);
+  const [onlineBusy, setOnlineBusy] = useState(false);
+  const [scoreboard, setScoreboard] = useState<Peer[]>([]);
+  const [isOnline, setIsOnline] = useState(false);
+
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -281,7 +306,24 @@ function Index() {
     let shrinkTimer = 0;
     let shrinkCharges = 3;
     let flashRing = 0;
+    let killCount = 0;
+    let netAcc = 0;
     const pointer = { active: false, x: 0, y: 0 };
+
+    const netSend = (alive: boolean) => {
+      const s = netRef.current;
+      if (!s || !onlineRef.current || w <= 0 || h <= 0) return;
+      s.sendState({
+        nx: player.x / w,
+        ny: player.y / h,
+        hp: Math.max(0, Math.ceil(player.hp)),
+        maxHp: Math.round(player.maxHp),
+        score: Math.floor(elapsed * 10) / 10,
+        kills: killCount,
+        level: levelNo,
+        alive,
+      });
+    };
 
     const burst = (x: number, y: number, n: number, hue: number, power = 3) => {
       for (let i = 0; i < n; i++) {
