@@ -403,6 +403,8 @@ function Index() {
         else player.guns += 1;
       }
       levelNo += 1;
+      shrinkCharges += 2;
+      setShrinks(shrinkCharges);
 
       // her 5 seviyede kuş bakışı %10 genişler
       if (levelNo % 5 === 1 && levelNo > 1) {
