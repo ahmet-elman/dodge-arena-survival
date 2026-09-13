@@ -494,6 +494,8 @@ function Index() {
         if (player.invuln > 0) player.invuln -= dt;
         if (freezeTimer > 0) freezeTimer -= dt;
         if (burnTimer > 0) burnTimer -= dt;
+        if (shrinkTimer > 0) shrinkTimer -= dt;
+        player.r = shrinkTimer > 0 ? 5 : 13;
 
         // input
         let ax = 0;
