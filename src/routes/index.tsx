@@ -86,6 +86,7 @@ function Index() {
   const [maxHp, setMaxHp] = useState(100);
   const [kills, setKills] = useState(0);
   const [zoomPct, setZoomPct] = useState(100);
+  const [shrinks, setShrinks] = useState(3);
   const [choices, setChoices] = useState<Upgrade[]>([]);
   const [picked, setPicked] = useState<UpgradeKey | null>(null);
   const phaseRef = useRef<Phase>("menu");
