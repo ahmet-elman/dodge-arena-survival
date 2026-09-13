@@ -3,6 +3,16 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Leaderboard } from "@/components/Leaderboard";
+import {
+  MAX_PLAYERS,
+  OnlineSession,
+  createRoom,
+  findQuickRoom,
+  roomExists,
+  setRoomPlayers,
+  setRoomStatus,
+} from "@/lib/online";
+import type { Peer, RosterEntry } from "@/lib/online";
 
 export const Route = createFileRoute("/")({
   head: () => ({
