@@ -948,6 +948,10 @@ function Index() {
               {kills}
             </span>
             <span className="stat">
+              <small>Küçülme (Space)</small>
+              {shrinks}
+            </span>
+            <span className="stat">
               <small>Görüş</small>
               {zoomPct}%
             </span>
