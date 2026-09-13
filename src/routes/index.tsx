@@ -306,7 +306,24 @@ function Index() {
     let shrinkTimer = 0;
     let shrinkCharges = 3;
     let flashRing = 0;
+    let killCount = 0;
+    let netAcc = 0;
     const pointer = { active: false, x: 0, y: 0 };
+
+    const netSend = (alive: boolean) => {
+      const s = netRef.current;
+      if (!s || !onlineRef.current || w <= 0 || h <= 0) return;
+      s.sendState({
+        nx: player.x / w,
+        ny: player.y / h,
+        hp: Math.max(0, Math.ceil(player.hp)),
+        maxHp: Math.round(player.maxHp),
+        score: Math.floor(elapsed * 10) / 10,
+        kills: killCount,
+        level: levelNo,
+        alive,
+      });
+    };
 
     const burst = (x: number, y: number, n: number, hue: number, power = 3) => {
       for (let i = 0; i < n; i++) {
