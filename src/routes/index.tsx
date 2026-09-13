@@ -86,6 +86,7 @@ function Index() {
   const [maxHp, setMaxHp] = useState(100);
   const [kills, setKills] = useState(0);
   const [zoomPct, setZoomPct] = useState(100);
+  const [shrinks, setShrinks] = useState(3);
   const [choices, setChoices] = useState<Upgrade[]>([]);
   const [picked, setPicked] = useState<UpgradeKey | null>(null);
   const phaseRef = useRef<Phase>("menu");
@@ -277,6 +278,8 @@ function Index() {
     let nextLevelAt = 15;
     let levelNo = 1;
     let shake = 0;
+    let shrinkTimer = 0;
+    let shrinkCharges = 3;
     let flashRing = 0;
     const pointer = { active: false, x: 0, y: 0 };
 
@@ -363,6 +366,10 @@ function Index() {
       nextLevelAt = 15;
       levelNo = 1;
       shake = 0;
+      shrinkTimer = 0;
+      player.r = 13;
+      shrinkCharges = 3;
+      setShrinks(3);
       setScore(0);
       setKills(0);
       setLevel(1);
@@ -396,6 +403,8 @@ function Index() {
         else player.guns += 1;
       }
       levelNo += 1;
+      shrinkCharges += 2;
+      setShrinks(shrinkCharges);
 
       // her 5 seviyede kuş bakışı %10 genişler
       if (levelNo % 5 === 1 && levelNo > 1) {
@@ -438,6 +447,12 @@ function Index() {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(e.key.toLowerCase()))
         e.preventDefault();
       if (e.key === "Enter" && (phaseRef.current === "menu" || phaseRef.current === "over")) start();
+      if (e.key === " " && phaseRef.current === "playing" && shrinkTimer <= 0 && shrinkCharges > 0) {
+        shrinkCharges -= 1;
+        shrinkTimer = 0.5;
+        setShrinks(shrinkCharges);
+        burst(player.x, player.y, 16, 190, 2);
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
     window.addEventListener("keydown", onKeyDown, { passive: false });
@@ -479,6 +494,8 @@ function Index() {
         if (player.invuln > 0) player.invuln -= dt;
         if (freezeTimer > 0) freezeTimer -= dt;
         if (burnTimer > 0) burnTimer -= dt;
+        if (shrinkTimer > 0) shrinkTimer -= dt;
+        player.r = shrinkTimer > 0 ? 5 : 13;
 
         // input
         let ax = 0;
@@ -929,6 +946,10 @@ function Index() {
             <span className="stat">
               <small>Öldürme</small>
               {kills}
+            </span>
+            <span className="stat">
+              <small>Küçülme (Space)</small>
+              {shrinks}
             </span>
             <span className="stat">
               <small>Görüş</small>
