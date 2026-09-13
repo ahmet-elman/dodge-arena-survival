@@ -447,6 +447,12 @@ function Index() {
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(e.key.toLowerCase()))
         e.preventDefault();
       if (e.key === "Enter" && (phaseRef.current === "menu" || phaseRef.current === "over")) start();
+      if (e.key === " " && phaseRef.current === "playing" && shrinkTimer <= 0 && shrinkCharges > 0) {
+        shrinkCharges -= 1;
+        shrinkTimer = 0.5;
+        setShrinks(shrinkCharges);
+        burst(player.x, player.y, 16, 190, 2);
+      }
     };
     const onKeyUp = (e: KeyboardEvent) => keys.delete(e.key.toLowerCase());
     window.addEventListener("keydown", onKeyDown, { passive: false });
