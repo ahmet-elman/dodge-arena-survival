@@ -366,6 +366,10 @@ function Index() {
       nextLevelAt = 15;
       levelNo = 1;
       shake = 0;
+      shrinkTimer = 0;
+      player.r = 13;
+      shrinkCharges = 3;
+      setShrinks(3);
       setScore(0);
       setKills(0);
       setLevel(1);
