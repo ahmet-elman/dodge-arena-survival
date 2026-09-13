@@ -278,6 +278,8 @@ function Index() {
     let nextLevelAt = 15;
     let levelNo = 1;
     let shake = 0;
+    let shrinkTimer = 0;
+    let shrinkCharges = 3;
     let flashRing = 0;
     const pointer = { active: false, x: 0, y: 0 };
 
