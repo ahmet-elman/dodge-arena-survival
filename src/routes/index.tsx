@@ -1311,6 +1311,36 @@ function Index() {
           </section>
         )}
 
+        {isOnline && (
+          <section className="arena-board">
+            <div className="arena-board-head">
+              <strong>🌐 Oda {room} · Canlı sıralama</strong>
+              <button className="arena-tab" onClick={() => void leaveRoom()}>
+                Ayrıl
+              </button>
+            </div>
+            <ol className="arena-board-list">
+              <li>
+                <span className="arena-rank">•</span>
+                <span className="arena-name">{userName || "sen"} (sen)</span>
+                <span className="arena-kills">{kills} öldürme</span>
+                <span className="arena-time">{score.toFixed(1)}s</span>
+              </li>
+              {scoreboard.map((p) => (
+                <li key={p.id}>
+                  <span className="arena-rank">•</span>
+                  <span className="arena-name">
+                    {p.name}
+                    {p.alive ? "" : " 💀"}
+                  </span>
+                  <span className="arena-kills">{p.kills} öldürme</span>
+                  <span className="arena-time">{p.score.toFixed(1)}s</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         <p className="arena-hint">
           Düşmanlar her 15 saniyede hızlanır. Nadir düşenler: ❄ 3 sn dondurma, 🔥 3 sn yakma.
         </p>
