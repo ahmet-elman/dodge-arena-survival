@@ -413,7 +413,10 @@ function Index() {
       shrinkCharges = 3;
       setShrinks(3);
       setScore(0);
+      killCount = 0;
+      netAcc = 0;
       setKills(0);
+      netSend(true);
       setLevel(1);
       setHp(player.maxHp);
       setMaxHp(player.maxHp);
@@ -481,6 +484,7 @@ function Index() {
         localStorage.setItem("dodge-arena-best", String(nb));
         return nb;
       });
+      netSend(false);
       setPhase("over");
     };
 
@@ -533,6 +537,11 @@ function Index() {
       if (running) {
         elapsed += dt;
         setScore(Math.floor(elapsed * 10) / 10);
+        netAcc += dt;
+        if (netAcc >= 0.1) {
+          netAcc = 0;
+          netSend(true);
+        }
         if (player.invuln > 0) player.invuln -= dt;
         if (freezeTimer > 0) freezeTimer -= dt;
         if (burnTimer > 0) burnTimer -= dt;
@@ -595,7 +604,8 @@ function Index() {
 
         const killEnemy = (en: Enemy) => {
           burst(en.x, en.y, 18, en.hue, 3.5);
-          setKills((k) => k + 1);
+          killCount += 1;
+          setKills(killCount);
           if (Math.random() < 0.04) {
             items.push({
               x: en.x,
@@ -866,6 +876,35 @@ function Index() {
         ctx.shadowBlur = 0;
       }
 
+      // diğer oyuncular (online)
+      if (onlineRef.current) {
+        const now2 = Date.now();
+        for (const p of peersRef.current) {
+          if (now2 - p.ts > 6000) continue;
+          const px = Math.max(8, Math.min(w - 8, p.nx * w));
+          const py = Math.max(8, Math.min(h - 8, p.ny * h));
+          ctx.globalAlpha = p.alive ? 0.85 : 0.35;
+          ctx.fillStyle = "hsl(275,90%,72%)";
+          ctx.beginPath();
+          ctx.arc(px, py, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(230,210,255,0.7)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          const bw = 34;
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(px - bw / 2, py - 24, bw, 4);
+          ctx.fillStyle = "hsl(275,90%,68%)";
+          ctx.fillRect(px - bw / 2, py - 24, (bw * Math.max(0, p.hp)) / Math.max(1, p.maxHp), 4);
+          ctx.fillStyle = "rgba(235,235,255,0.9)";
+          ctx.font = "11px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(p.alive ? p.name : `${p.name} 💀`, px, py - 28);
+          ctx.textAlign = "start";
+          ctx.globalAlpha = 1;
+        }
+      }
+
       if (phaseRef.current === "playing" || phaseRef.current === "upgrade") {
         if (player.flame) {
           const fr = player.flameRange * (1 + Math.sin(t * 8) * 0.02);
@@ -925,6 +964,112 @@ function Index() {
     setMode(m);
     startRef.current(m);
   }, []);
+
+  const connectRoom = useCallback(
+    async (code: string) => {
+      if (!user) return;
+      const session = new OnlineSession(
+        code,
+        { id: user.id, name: userName || user.email?.split("@")[0] || "oyuncu" },
+        {
+          onRoster: (list) => {
+            setRoster(list);
+            setIsHost(list.length > 0 && list[0]!.id === user.id);
+            void setRoomPlayers(code, list.length);
+          },
+          onPeers: (list) => {
+            peersRef.current = list;
+            setScoreboard([...list].sort((a, b) => b.score - a.score));
+          },
+          onStart: (m) => {
+            setPicked(null);
+            setMode(m);
+            startRef.current(m);
+          },
+        },
+      );
+      await session.join();
+      netRef.current = session;
+      onlineRef.current = true;
+      peersRef.current = [];
+      setScoreboard([]);
+      setIsOnline(true);
+      setRoom(code);
+    },
+    [user, userName],
+  );
+
+  const leaveRoom = useCallback(async () => {
+    const s = netRef.current;
+    netRef.current = null;
+    onlineRef.current = false;
+    peersRef.current = [];
+    setIsOnline(false);
+    setRoom(null);
+    setRoster([]);
+    setScoreboard([]);
+    setIsHost(false);
+    setOnlineNote(null);
+    if (s) await s.leave();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void netRef.current?.leave();
+      netRef.current = null;
+      onlineRef.current = false;
+    };
+  }, []);
+
+  const runOnline = useCallback(
+    async (fn: () => Promise<void>) => {
+      if (!user) {
+        setOnlineNote("Online oynamak için giriş yapmalısın.");
+        return;
+      }
+      setOnlineBusy(true);
+      setOnlineNote(null);
+      try {
+        await fn();
+      } catch (err) {
+        setOnlineNote(err instanceof Error ? err.message : "Bir hata oluştu.");
+      } finally {
+        setOnlineBusy(false);
+      }
+    },
+    [user],
+  );
+
+  const handleCreateRoom = () =>
+    void runOnline(async () => {
+      const code = await createRoom(user!.id, false);
+      await connectRoom(code);
+    });
+
+  const handleQuickMatch = () =>
+    void runOnline(async () => {
+      const code = await findQuickRoom(user!.id);
+      await connectRoom(code);
+    });
+
+  const handleJoinRoom = () =>
+    void runOnline(async () => {
+      const code = joinCode.trim().toUpperCase();
+      if (code.length < 4) throw new Error("Geçerli bir oda kodu gir.");
+      const found = await roomExists(code);
+      if (!found) throw new Error("Böyle bir oda bulunamadı.");
+      if (found.players >= MAX_PLAYERS) throw new Error("Oda dolu.");
+      await connectRoom(code);
+    });
+
+  const handleOnlineStart = (m: Mode) => {
+    const s = netRef.current;
+    if (!s || !room) return;
+    s.broadcastStart(m);
+    void setRoomStatus(room, "playing", m);
+    handleStart(m);
+  };
+
 
   const handlePick = useCallback(
     (k: UpgradeKey) => {
@@ -1038,6 +1183,76 @@ function Index() {
                     <p className="arena-modehint">
                       Alev modu: 150 can ile başlarsın, sadece yaklaşan düşmanlar yanar.
                     </p>
+
+                    <div className="arena-online">
+                      {!onlineOpen && !room ? (
+                        <button className="arena-tab" onClick={() => setOnlineOpen(true)}>
+                          🌐 Online VS (arkadaşlarla)
+                        </button>
+                      ) : room ? (
+                        <>
+                          <strong>
+                            Oda kodu: <span className="arena-code">{room}</span>
+                          </strong>
+                          <ul className="arena-roster">
+                            {roster.map((r, i) => (
+                              <li key={r.id}>
+                                {i === 0 ? "👑 " : ""}
+                                {r.name}
+                                {r.id === user?.id ? " (sen)" : ""}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="arena-modehint">
+                            {roster.length}/{MAX_PLAYERS} oyuncu ·{" "}
+                            {isHost ? "Oyunu sen başlatırsın." : "Kurucunun başlatmasını bekle."}
+                          </p>
+                          {isHost && (
+                            <div className="arena-modes">
+                              <button className="arena-btn" onClick={() => handleOnlineStart("classic")}>
+                                🔫 Klasik Başlat
+                              </button>
+                              <button
+                                className="arena-btn arena-btn-flame"
+                                onClick={() => handleOnlineStart("flame")}
+                              >
+                                🔥 Alev Başlat
+                              </button>
+                            </div>
+                          )}
+                          <button className="arena-tab" onClick={() => void leaveRoom()}>
+                            Odadan ayrıl
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="arena-modes">
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleQuickMatch}>
+                              ⚡ Hızlı Eşleş
+                            </button>
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleCreateRoom}>
+                              ➕ Oda Kur
+                            </button>
+                          </div>
+                          <div className="arena-join">
+                            <input
+                              className="arena-input"
+                              value={joinCode}
+                              maxLength={5}
+                              placeholder="ODA KODU"
+                              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                            />
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleJoinRoom}>
+                              Katıl
+                            </button>
+                          </div>
+                          <button className="arena-tab" onClick={() => setOnlineOpen(false)}>
+                            Kapat
+                          </button>
+                        </>
+                      )}
+                      {onlineNote && <p className="arena-msg">{onlineNote}</p>}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -1093,6 +1308,36 @@ function Index() {
                 </button>
               ))}
             </div>
+          </section>
+        )}
+
+        {isOnline && (
+          <section className="arena-board">
+            <div className="arena-board-head">
+              <strong>🌐 Oda {room} · Canlı sıralama</strong>
+              <button className="arena-tab" onClick={() => void leaveRoom()}>
+                Ayrıl
+              </button>
+            </div>
+            <ol className="arena-board-list">
+              <li>
+                <span className="arena-rank">•</span>
+                <span className="arena-name">{userName || "sen"} (sen)</span>
+                <span className="arena-kills">{kills} öldürme</span>
+                <span className="arena-time">{score.toFixed(1)}s</span>
+              </li>
+              {scoreboard.map((p) => (
+                <li key={p.id}>
+                  <span className="arena-rank">•</span>
+                  <span className="arena-name">
+                    {p.name}
+                    {p.alive ? "" : " 💀"}
+                  </span>
+                  <span className="arena-kills">{p.kills} öldürme</span>
+                  <span className="arena-time">{p.score.toFixed(1)}s</span>
+                </li>
+              ))}
+            </ol>
           </section>
         )}
 
