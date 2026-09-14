@@ -46,7 +46,7 @@ type Item = Vec & { kind: ItemKind; life: number };
 type Phase = "menu" | "playing" | "upgrade" | "over";
 type Mode = "classic" | "flame";
 
-type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns" | "range";
+type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns" | "range" | "lifesteal";
 type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string; weight: number };
 
 const UPGRADES: Upgrade[] = [
