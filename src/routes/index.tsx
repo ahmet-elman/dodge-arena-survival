@@ -1183,6 +1183,76 @@ function Index() {
                     <p className="arena-modehint">
                       Alev modu: 150 can ile başlarsın, sadece yaklaşan düşmanlar yanar.
                     </p>
+
+                    <div className="arena-online">
+                      {!onlineOpen && !room ? (
+                        <button className="arena-tab" onClick={() => setOnlineOpen(true)}>
+                          🌐 Online VS (arkadaşlarla)
+                        </button>
+                      ) : room ? (
+                        <>
+                          <strong>
+                            Oda kodu: <span className="arena-code">{room}</span>
+                          </strong>
+                          <ul className="arena-roster">
+                            {roster.map((r, i) => (
+                              <li key={r.id}>
+                                {i === 0 ? "👑 " : ""}
+                                {r.name}
+                                {r.id === user?.id ? " (sen)" : ""}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="arena-modehint">
+                            {roster.length}/{MAX_PLAYERS} oyuncu ·{" "}
+                            {isHost ? "Oyunu sen başlatırsın." : "Kurucunun başlatmasını bekle."}
+                          </p>
+                          {isHost && (
+                            <div className="arena-modes">
+                              <button className="arena-btn" onClick={() => handleOnlineStart("classic")}>
+                                🔫 Klasik Başlat
+                              </button>
+                              <button
+                                className="arena-btn arena-btn-flame"
+                                onClick={() => handleOnlineStart("flame")}
+                              >
+                                🔥 Alev Başlat
+                              </button>
+                            </div>
+                          )}
+                          <button className="arena-tab" onClick={() => void leaveRoom()}>
+                            Odadan ayrıl
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="arena-modes">
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleQuickMatch}>
+                              ⚡ Hızlı Eşleş
+                            </button>
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleCreateRoom}>
+                              ➕ Oda Kur
+                            </button>
+                          </div>
+                          <div className="arena-join">
+                            <input
+                              className="arena-input"
+                              value={joinCode}
+                              maxLength={5}
+                              placeholder="ODA KODU"
+                              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                            />
+                            <button className="arena-tab" disabled={onlineBusy} onClick={handleJoinRoom}>
+                              Katıl
+                            </button>
+                          </div>
+                          <button className="arena-tab" onClick={() => setOnlineOpen(false)}>
+                            Kapat
+                          </button>
+                        </>
+                      )}
+                      {onlineNote && <p className="arena-msg">{onlineNote}</p>}
+                    </div>
                   </>
                 ) : (
                   <>
