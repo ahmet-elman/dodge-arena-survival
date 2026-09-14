@@ -413,7 +413,10 @@ function Index() {
       shrinkCharges = 3;
       setShrinks(3);
       setScore(0);
+      killCount = 0;
+      netAcc = 0;
       setKills(0);
+      netSend(true);
       setLevel(1);
       setHp(player.maxHp);
       setMaxHp(player.maxHp);
@@ -481,6 +484,7 @@ function Index() {
         localStorage.setItem("dodge-arena-best", String(nb));
         return nb;
       });
+      netSend(false);
       setPhase("over");
     };
 
@@ -533,6 +537,11 @@ function Index() {
       if (running) {
         elapsed += dt;
         setScore(Math.floor(elapsed * 10) / 10);
+        netAcc += dt;
+        if (netAcc >= 0.1) {
+          netAcc = 0;
+          netSend(true);
+        }
         if (player.invuln > 0) player.invuln -= dt;
         if (freezeTimer > 0) freezeTimer -= dt;
         if (burnTimer > 0) burnTimer -= dt;
@@ -595,7 +604,8 @@ function Index() {
 
         const killEnemy = (en: Enemy) => {
           burst(en.x, en.y, 18, en.hue, 3.5);
-          setKills((k) => k + 1);
+          killCount += 1;
+          setKills(killCount);
           if (Math.random() < 0.04) {
             items.push({
               x: en.x,
@@ -864,6 +874,35 @@ function Index() {
         ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
+      }
+
+      // diğer oyuncular (online)
+      if (onlineRef.current) {
+        const now2 = Date.now();
+        for (const p of peersRef.current) {
+          if (now2 - p.ts > 6000) continue;
+          const px = Math.max(8, Math.min(w - 8, p.nx * w));
+          const py = Math.max(8, Math.min(h - 8, p.ny * h));
+          ctx.globalAlpha = p.alive ? 0.85 : 0.35;
+          ctx.fillStyle = "hsl(275,90%,72%)";
+          ctx.beginPath();
+          ctx.arc(px, py, 12, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "rgba(230,210,255,0.7)";
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          const bw = 34;
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(px - bw / 2, py - 24, bw, 4);
+          ctx.fillStyle = "hsl(275,90%,68%)";
+          ctx.fillRect(px - bw / 2, py - 24, (bw * Math.max(0, p.hp)) / Math.max(1, p.maxHp), 4);
+          ctx.fillStyle = "rgba(235,235,255,0.9)";
+          ctx.font = "11px system-ui, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(p.alive ? p.name : `${p.name} 💀`, px, py - 28);
+          ctx.textAlign = "start";
+          ctx.globalAlpha = 1;
+        }
       }
 
       if (phaseRef.current === "playing" || phaseRef.current === "upgrade") {
