@@ -46,7 +46,7 @@ type Item = Vec & { kind: ItemKind; life: number };
 type Phase = "menu" | "playing" | "upgrade" | "over";
 type Mode = "classic" | "flame";
 
-type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns" | "range";
+type UpgradeKey = "hp" | "damage" | "speed" | "firerate" | "heal" | "nova" | "guns" | "range" | "lifesteal";
 type Upgrade = { key: UpgradeKey; title: string; desc: string; icon: string; weight: number };
 
 const UPGRADES: Upgrade[] = [
@@ -64,10 +64,11 @@ const UPGRADES: Upgrade[] = [
   },
   { key: "range", title: "Alev Menzili +20%", desc: "Alevin ulaştığı alan genişler", icon: "🌡", weight: 9 },
   { key: "guns", title: "Ekstra Silah", desc: "Aynı anda bir mermi daha ateşlersin", icon: "🔫", weight: 3 },
+  { key: "lifesteal", title: "Can Çalma", desc: "Öldürdüğün her düşman can verir", icon: "🩸", weight: 7 },
 ];
 
-function pickChoices(n: number, mode: Mode = "classic"): Upgrade[] {
-  const banned: UpgradeKey[] = mode === "flame" ? ["firerate", "guns"] : ["range"];
+function pickChoices(n: number, mode: Mode = "classic", exclude: UpgradeKey[] = []): Upgrade[] {
+  const banned: UpgradeKey[] = [...(mode === "flame" ? ["firerate", "guns"] : ["range"]) as UpgradeKey[], ...exclude];
   const pool = UPGRADES.filter((u) => !banned.includes(u.key)).map((u) => ({ ...u }));
   const out: Upgrade[] = [];
   while (out.length < n && pool.length) {
@@ -289,6 +290,7 @@ function Index() {
       nova: 0,
       flame: false,
       flameRange: 96,
+      lifesteal: 0,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
@@ -410,6 +412,7 @@ function Index() {
       shake = 0;
       shrinkTimer = 0;
       player.r = 13;
+      player.lifesteal = 0;
       shrinkCharges = 3;
       setShrinks(3);
       setScore(0);
