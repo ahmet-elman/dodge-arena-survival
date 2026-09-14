@@ -965,6 +965,112 @@ function Index() {
     startRef.current(m);
   }, []);
 
+  const connectRoom = useCallback(
+    async (code: string) => {
+      if (!user) return;
+      const session = new OnlineSession(
+        code,
+        { id: user.id, name: userName || user.email?.split("@")[0] || "oyuncu" },
+        {
+          onRoster: (list) => {
+            setRoster(list);
+            setIsHost(list.length > 0 && list[0]!.id === user.id);
+            void setRoomPlayers(code, list.length);
+          },
+          onPeers: (list) => {
+            peersRef.current = list;
+            setScoreboard([...list].sort((a, b) => b.score - a.score));
+          },
+          onStart: (m) => {
+            setPicked(null);
+            setMode(m);
+            startRef.current(m);
+          },
+        },
+      );
+      await session.join();
+      netRef.current = session;
+      onlineRef.current = true;
+      peersRef.current = [];
+      setScoreboard([]);
+      setIsOnline(true);
+      setRoom(code);
+    },
+    [user, userName],
+  );
+
+  const leaveRoom = useCallback(async () => {
+    const s = netRef.current;
+    netRef.current = null;
+    onlineRef.current = false;
+    peersRef.current = [];
+    setIsOnline(false);
+    setRoom(null);
+    setRoster([]);
+    setScoreboard([]);
+    setIsHost(false);
+    setOnlineNote(null);
+    if (s) await s.leave();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void netRef.current?.leave();
+      netRef.current = null;
+      onlineRef.current = false;
+    };
+  }, []);
+
+  const runOnline = useCallback(
+    async (fn: () => Promise<void>) => {
+      if (!user) {
+        setOnlineNote("Online oynamak için giriş yapmalısın.");
+        return;
+      }
+      setOnlineBusy(true);
+      setOnlineNote(null);
+      try {
+        await fn();
+      } catch (err) {
+        setOnlineNote(err instanceof Error ? err.message : "Bir hata oluştu.");
+      } finally {
+        setOnlineBusy(false);
+      }
+    },
+    [user],
+  );
+
+  const handleCreateRoom = () =>
+    void runOnline(async () => {
+      const code = await createRoom(user!.id, false);
+      await connectRoom(code);
+    });
+
+  const handleQuickMatch = () =>
+    void runOnline(async () => {
+      const code = await findQuickRoom(user!.id);
+      await connectRoom(code);
+    });
+
+  const handleJoinRoom = () =>
+    void runOnline(async () => {
+      const code = joinCode.trim().toUpperCase();
+      if (code.length < 4) throw new Error("Geçerli bir oda kodu gir.");
+      const found = await roomExists(code);
+      if (!found) throw new Error("Böyle bir oda bulunamadı.");
+      if (found.players >= MAX_PLAYERS) throw new Error("Oda dolu.");
+      await connectRoom(code);
+    });
+
+  const handleOnlineStart = (m: Mode) => {
+    const s = netRef.current;
+    if (!s || !room) return;
+    s.broadcastStart(m);
+    void setRoomStatus(room, "playing", m);
+    handleStart(m);
+  };
+
+
   const handlePick = useCallback(
     (k: UpgradeKey) => {
       if (picked) return;
