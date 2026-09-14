@@ -64,10 +64,11 @@ const UPGRADES: Upgrade[] = [
   },
   { key: "range", title: "Alev Menzili +20%", desc: "Alevin ulaştığı alan genişler", icon: "🌡", weight: 9 },
   { key: "guns", title: "Ekstra Silah", desc: "Aynı anda bir mermi daha ateşlersin", icon: "🔫", weight: 3 },
+  { key: "lifesteal", title: "Can Çalma", desc: "Öldürdüğün her düşman can verir", icon: "🩸", weight: 7 },
 ];
 
-function pickChoices(n: number, mode: Mode = "classic"): Upgrade[] {
-  const banned: UpgradeKey[] = mode === "flame" ? ["firerate", "guns"] : ["range"];
+function pickChoices(n: number, mode: Mode = "classic", exclude: UpgradeKey[] = []): Upgrade[] {
+  const banned: UpgradeKey[] = [...(mode === "flame" ? ["firerate", "guns"] : ["range"]) as UpgradeKey[], ...exclude];
   const pool = UPGRADES.filter((u) => !banned.includes(u.key)).map((u) => ({ ...u }));
   const out: Upgrade[] = [];
   while (out.length < n && pool.length) {
