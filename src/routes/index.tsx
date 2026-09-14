@@ -412,6 +412,7 @@ function Index() {
       shake = 0;
       shrinkTimer = 0;
       player.r = 13;
+      player.lifesteal = 0;
       shrinkCharges = 3;
       setShrinks(3);
       setScore(0);
