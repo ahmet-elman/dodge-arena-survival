@@ -290,6 +290,7 @@ function Index() {
       nova: 0,
       flame: false,
       flameRange: 96,
+      lifesteal: 0,
     };
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
