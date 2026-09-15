@@ -292,6 +292,7 @@ function Index() {
       flameRange: 96,
       lifesteal: 0,
     };
+    let lifestealPicks = 0;
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
     let particles: Particle[] = [];
@@ -413,6 +414,7 @@ function Index() {
       shrinkTimer = 0;
       player.r = 13;
       player.lifesteal = 0;
+      lifestealPicks = 0;
       shrinkCharges = 3;
       setShrinks(3);
       setScore(0);
@@ -449,6 +451,9 @@ function Index() {
       } else if (k === "guns") {
         if (player.flame) player.flameRange += 28;
         else player.guns += 1;
+      } else if (k === "lifesteal") {
+        lifestealPicks += 1;
+        player.lifesteal = lifestealPicks >= 2 ? 4 : 2;
       }
       levelNo += 1;
       shrinkCharges += 2;
@@ -609,6 +614,10 @@ function Index() {
           burst(en.x, en.y, 18, en.hue, 3.5);
           killCount += 1;
           setKills(killCount);
+          if (player.lifesteal > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + player.lifesteal);
+            setHp(Math.max(0, Math.ceil(player.hp)));
+          }
           if (Math.random() < 0.04) {
             items.push({
               x: en.x,
@@ -765,7 +774,13 @@ function Index() {
         // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
           nextLevelAt += 15;
-          setChoices(pickChoices(4, player.flame ? "flame" : "classic"));
+          setChoices(
+            pickChoices(
+              4,
+              player.flame ? "flame" : "classic",
+              lifestealPicks >= 2 ? ["lifesteal"] : [],
+            ),
+          );
           setPhase("upgrade");
           phaseRef.current = "upgrade";
         }
