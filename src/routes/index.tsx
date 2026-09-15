@@ -614,6 +614,10 @@ function Index() {
           burst(en.x, en.y, 18, en.hue, 3.5);
           killCount += 1;
           setKills(killCount);
+          if (player.lifesteal > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + player.lifesteal);
+            setHp(Math.max(0, Math.ceil(player.hp)));
+          }
           if (Math.random() < 0.04) {
             items.push({
               x: en.x,
