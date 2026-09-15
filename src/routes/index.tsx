@@ -774,7 +774,13 @@ function Index() {
         // her 15 saniyede seviye
         if (phaseRef.current === "playing" && elapsed >= nextLevelAt) {
           nextLevelAt += 15;
-          setChoices(pickChoices(4, player.flame ? "flame" : "classic"));
+          setChoices(
+            pickChoices(
+              4,
+              player.flame ? "flame" : "classic",
+              lifestealPicks >= 2 ? ["lifesteal"] : [],
+            ),
+          );
           setPhase("upgrade");
           phaseRef.current = "upgrade";
         }
