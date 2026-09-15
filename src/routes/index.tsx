@@ -451,6 +451,9 @@ function Index() {
       } else if (k === "guns") {
         if (player.flame) player.flameRange += 28;
         else player.guns += 1;
+      } else if (k === "lifesteal") {
+        lifestealPicks += 1;
+        player.lifesteal = lifestealPicks >= 2 ? 4 : 2;
       }
       levelNo += 1;
       shrinkCharges += 2;
