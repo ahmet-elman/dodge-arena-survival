@@ -292,6 +292,7 @@ function Index() {
       flameRange: 96,
       lifesteal: 0,
     };
+    let lifestealPicks = 0;
     let enemies: Enemy[] = [];
     let bullets: Bullet[] = [];
     let particles: Particle[] = [];
